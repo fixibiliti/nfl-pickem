@@ -6,29 +6,50 @@ export default function Home() {
   const [name, setName] = useState('');
   const [pin, setPin] = useState('');
 
-  // All picks mapped by user ID: { user_1: { gameId: teamId } }
+  // PIN Change State
+  const [isChangingPin, setIsChangingPin] = useState(false);
+  const [newPin, setNewPin] = useState('');
+  const [confirmPin, setConfirmPin] = useState('');
+
+  // Picks and Views
   const [allPicks, setAllPicks] = useState({});
-  // Which player's picks are currently displayed
   const [viewingUserId, setViewingUserId] = useState(null);
 
   const [slate, setSlate] = useState([]);
   const [standings, setStandings] = useState([]);
   const [historyData, setHistoryData] = useState([]);
-  const [activeTab, setActiveTab] = useState('slate'); // 'slate' or 'history'
+  const [activeTab, setActiveTab] = useState('slate');
   const [week, setWeek] = useState(1);
   const [isLocked, setIsLocked] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // Wednesday 11:59 PM lockout rule
+  // 1. Lockout rule check
   useEffect(() => {
     const now = new Date();
-    const day = now.getDay(); // Wed = 3, Thu = 4, Fri = 5, Sat = 6, Sun = 0, Mon = 1
+    const day = now.getDay();
     const hours = now.getHours();
     const mins = now.getMinutes();
 
     if ([4, 5, 6, 0, 1].includes(day) || (day === 3 && hours === 23 && mins >= 59)) {
       setIsLocked(true);
+    }
+  }, []);
+
+  // 2. Persistent Login Check
+  useEffect(() => {
+    try {
+      const savedUser = localStorage.getItem('nfl_pickem_user');
+      if (savedUser) {
+        const parsed = JSON.parse(savedUser);
+        if (parsed?.id && !parsed.mustChangePin) {
+          setUser(parsed);
+          loadSlateAndScores(parsed.id);
+          loadHistory();
+        }
+      }
+    } catch (e) {
+      console.error('Session restore failed:', e);
     }
   }, []);
 
@@ -45,7 +66,7 @@ export default function Home() {
         Object.entries(data.picks).forEach(([uid, userPickList]) => {
           formattedAllPicks[uid] = {};
           if (Array.isArray(userPickList)) {
-            userPickList.forEach(p => {
+            userPickList.forEach((p) => {
               formattedAllPicks[uid][p.gameId] = p.selectedTeamId;
             });
           }
@@ -77,19 +98,60 @@ export default function Home() {
       body: JSON.stringify({ name, pin })
     });
     const data = await res.json();
+
     if (res.ok) {
-      setUser(data.user);
-      loadSlateAndScores(data.user.id);
-      loadHistory();
+      if (data.user.mustChangePin) {
+        setUser(data.user);
+        setIsChangingPin(true);
+      } else {
+        setUser(data.user);
+        localStorage.setItem('nfl_pickem_user', JSON.stringify(data.user));
+        loadSlateAndScores(data.user.id);
+        loadHistory();
+      }
     } else {
       setError(data.error || 'Invalid Name or PIN');
+    }
+  };
+
+  const handleSaveNewPin = async (e) => {
+    e.preventDefault();
+    setError('');
+
+    if (newPin.length !== 4 || !/^\d{4}$/.test(newPin)) {
+      setError('PIN must be 4 digits.');
+      return;
+    }
+    if (newPin !== confirmPin) {
+      setError('PINs do not match.');
+      return;
+    }
+
+    setLoading(true);
+    const res = await fetch('/api/auth/change-pin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: user.id, newPin })
+    });
+    const data = await res.json();
+    setLoading(false);
+
+    if (res.ok) {
+      const finalUser = { ...user, mustChangePin: false };
+      setUser(finalUser);
+      setIsChangingPin(false);
+      localStorage.setItem('nfl_pickem_user', JSON.stringify(finalUser));
+      loadSlateAndScores(finalUser.id);
+      loadHistory();
+    } else {
+      setError(data.error || 'Failed to update PIN');
     }
   };
 
   const selectWinner = (gameId, teamId) => {
     if (isLocked || viewingUserId !== user?.id) return;
 
-    setAllPicks(prev => ({
+    setAllPicks((prev) => ({
       ...prev,
       [user.id]: {
         ...(prev[user.id] || {}),
@@ -116,10 +178,64 @@ export default function Home() {
     }
   };
 
-  const viewingPlayerName = standings.find(s => s.id === viewingUserId)?.name || user?.name;
+  const viewingPlayerName = standings.find((s) => s.id === viewingUserId)?.name || user?.name;
   const currentDisplayedPicks = allPicks[viewingUserId] || {};
 
-  // 1. LOGIN SCREEN
+  // SCREEN A: MANDATORY FIRST-TIME PIN CREATION
+  if (isChangingPin) {
+    return (
+      <main className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-center items-center px-4">
+        <div className="w-full max-w-sm bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl">
+          <div className="text-center mb-6">
+            <span className="text-4xl">🔐</span>
+            <h1 className="text-xl font-black text-emerald-400 tracking-tight mt-2">CREATE YOUR PIN</h1>
+            <p className="text-xs text-slate-400 mt-1">
+              Welcome, <span className="text-white font-bold">{user?.name}</span>! Choose a private 4-digit PIN for your picks.
+            </p>
+          </div>
+
+          <form onSubmit={handleSaveNewPin} className="space-y-4">
+            <div>
+              <label className="block text-xs font-semibold text-slate-400 mb-1">New 4-Digit PIN</label>
+              <input
+                type="password"
+                inputMode="numeric"
+                maxLength={4}
+                value={newPin}
+                onChange={(e) => setNewPin(e.target.value)}
+                placeholder="••••"
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white tracking-widest text-center text-lg focus:outline-none focus:border-emerald-500"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-400 mb-1">Confirm PIN</label>
+              <input
+                type="password"
+                inputMode="numeric"
+                maxLength={4}
+                value={confirmPin}
+                onChange={(e) => setConfirmPin(e.target.value)}
+                placeholder="••••"
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white tracking-widest text-center text-lg focus:outline-none focus:border-emerald-500"
+              />
+            </div>
+
+            {error && <p className="text-xs text-rose-400 text-center font-semibold">{error}</p>}
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black py-3.5 rounded-xl transition shadow-lg text-sm tracking-wide active:scale-95 disabled:bg-slate-800 disabled:text-slate-600"
+            >
+              {loading ? 'SAVING PIN...' : 'LOCK IN NEW PIN'}
+            </button>
+          </form>
+        </div>
+      </main>
+    );
+  }
+
+  // SCREEN B: STANDARD LOGIN
   if (!user) {
     return (
       <main className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-center items-center px-4">
@@ -145,9 +261,10 @@ export default function Home() {
               </select>
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-400 mb-1">4-Digit PIN</label>
+              <label className="block text-xs font-semibold text-slate-400 mb-1">4-Digit PIN (Temporary: 0000)</label>
               <input
                 type="password"
+                inputMode="numeric"
                 maxLength={4}
                 value={pin}
                 onChange={(e) => setPin(e.target.value)}
@@ -168,18 +285,24 @@ export default function Home() {
     );
   }
 
-  // 2. MAIN DASHBOARD SCREEN
+  // SCREEN C: MAIN APPLICATION DASHBOARD
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 pb-20 font-sans max-w-lg mx-auto">
       {/* Top Header */}
       <header className="sticky top-0 z-50 bg-slate-900/95 backdrop-blur border-b border-slate-800 px-4 py-3 flex justify-between items-center shadow-md">
         <div>
           <h1 className="text-base font-black text-emerald-400 tracking-wide">NFL 5-PICK'EM</h1>
-          <p className="text-xs text-slate-400">Logged in: <span className="text-white font-bold">{user.name}</span></p>
+          <p className="text-xs text-slate-400">
+            Player: <span className="text-white font-bold">{user.name}</span>
+          </p>
         </div>
-        <span className={`text-[10px] px-2.5 py-1 rounded-full font-bold uppercase tracking-wider ${
-          isLocked ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30' : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-        }`}>
+        <span
+          className={`text-[10px] px-2.5 py-1 rounded-full font-bold uppercase tracking-wider ${
+            isLocked
+              ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
+              : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+          }`}
+        >
           {isLocked ? 'Picks Locked' : 'Picks Open'}
         </span>
       </header>
@@ -218,7 +341,7 @@ export default function Home() {
           <span className="text-[10px] text-slate-500 font-medium">Click name to view picks</span>
         </div>
         <div className="grid grid-cols-3 gap-2">
-          {standings.map(player => {
+          {standings.map((player) => {
             const isViewingThisPlayer = player.id === viewingUserId;
             return (
               <button
@@ -234,7 +357,11 @@ export default function Home() {
                     : 'bg-slate-950 border-slate-800 hover:border-slate-700 text-slate-300'
                 }`}
               >
-                <span className={`text-[11px] font-bold block truncate ${isViewingThisPlayer ? 'text-emerald-400' : 'text-slate-400'}`}>
+                <span
+                  className={`text-[11px] font-bold block truncate ${
+                    isViewingThisPlayer ? 'text-emerald-400' : 'text-slate-400'
+                  }`}
+                >
                   {player.name} {player.id === user.id ? '★' : ''}
                 </span>
                 <span className="text-xl font-black text-white">
@@ -263,7 +390,9 @@ export default function Home() {
 
           {viewingUserId !== user.id && (
             <div className="bg-slate-900/80 border border-slate-800 p-2.5 rounded-xl text-center text-xs text-slate-400 flex items-center justify-between px-3">
-              <span>Viewing <strong>{viewingPlayerName}</strong>'s slate (Read-Only)</span>
+              <span>
+                Viewing <strong>{viewingPlayerName}</strong>'s slate (Read-Only)
+              </span>
               <button
                 type="button"
                 onClick={() => setViewingUserId(user.id)}
@@ -291,7 +420,9 @@ export default function Home() {
                 <div key={game.gameId} className="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-sm">
                   {/* Card Header: Matchup & Date or FINAL */}
                   <div className="flex justify-between items-center text-[11px] text-slate-400 mb-3 border-b border-slate-800/80 pb-2 font-medium">
-                    <span className="text-emerald-400 font-semibold">Matchup {idx + 1} • {game.dayOfWeek}</span>
+                    <span className="text-emerald-400 font-semibold">
+                      Matchup {idx + 1} • {game.dayOfWeek}
+                    </span>
                     <div className="flex items-center space-x-2">
                       {game.isCompleted ? (
                         <span className="bg-slate-800 text-amber-400 font-bold px-2 py-0.5 rounded text-[10px] tracking-wider border border-amber-400/20">
@@ -299,7 +430,12 @@ export default function Home() {
                         </span>
                       ) : (
                         <span>
-                          {new Date(game.date).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: '2-digit' })} • {new Date(game.date).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                          {new Date(game.date).toLocaleDateString('en-US', {
+                            month: '2-digit',
+                            day: '2-digit',
+                            year: '2-digit'
+                          })}{' '}
+                          • {new Date(game.date).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
                         </span>
                       )}
                     </div>
@@ -320,23 +456,26 @@ export default function Home() {
                           : 'bg-slate-950 border-slate-800 text-slate-300'
                       }`}
                     >
-                      {/* Logo and Score Side-by-Side */}
                       <div className="flex items-center justify-center gap-2 mb-1.5 min-h-[36px]">
                         {game.awayTeam.logo && (
-                          <img src={game.awayTeam.logo} alt={game.awayTeam.name} className="w-9 h-9 object-contain" />
+                          <img
+                            src={game.awayTeam.logo}
+                            alt={game.awayTeam.name}
+                            className="w-9 h-9 object-contain"
+                          />
                         )}
                         {game.isCompleted && game.awayScore !== null && game.awayScore !== undefined && (
-                          <span className={`text-base font-black px-2 py-0.5 rounded-lg border ${
-                            isAwayWinner
-                              ? 'bg-emerald-400 text-slate-950 border-emerald-300 shadow-sm'
-                              : 'bg-slate-900 text-slate-300 border-slate-700'
-                          }`}>
+                          <span
+                            className={`text-base font-black px-2 py-0.5 rounded-lg border ${
+                              isAwayWinner
+                                ? 'bg-emerald-400 text-slate-950 border-emerald-300 shadow-sm'
+                                : 'bg-slate-900 text-slate-300 border-slate-700'
+                            }`}
+                          >
                             {game.awayScore}
                           </span>
                         )}
                       </div>
-
-                      {/* Team Code & Win Indicator */}
                       <span className="font-bold text-sm tracking-wide flex items-center gap-1">
                         {game.awayTeam.abbrev}
                         {isAwayWinner && <span className="text-emerald-300 text-xs font-black">✓</span>}
@@ -359,23 +498,26 @@ export default function Home() {
                           : 'bg-slate-950 border-slate-800 text-slate-300'
                       }`}
                     >
-                      {/* Logo and Score Side-by-Side */}
                       <div className="flex items-center justify-center gap-2 mb-1.5 min-h-[36px]">
                         {game.homeTeam.logo && (
-                          <img src={game.homeTeam.logo} alt={game.homeTeam.name} className="w-9 h-9 object-contain" />
+                          <img
+                            src={game.homeTeam.logo}
+                            alt={game.homeTeam.name}
+                            className="w-9 h-9 object-contain"
+                          />
                         )}
                         {game.isCompleted && game.homeScore !== null && game.homeScore !== undefined && (
-                          <span className={`text-base font-black px-2 py-0.5 rounded-lg border ${
-                            isHomeWinner
-                              ? 'bg-emerald-400 text-slate-950 border-emerald-300 shadow-sm'
-                              : 'bg-slate-900 text-slate-300 border-slate-700'
-                          }`}>
+                          <span
+                            className={`text-base font-black px-2 py-0.5 rounded-lg border ${
+                              isHomeWinner
+                                ? 'bg-emerald-400 text-slate-950 border-emerald-300 shadow-sm'
+                                : 'bg-slate-900 text-slate-300 border-slate-700'
+                            }`}
+                          >
                             {game.homeScore}
                           </span>
                         )}
                       </div>
-
-                      {/* Team Code & Win Indicator */}
                       <span className="font-bold text-sm tracking-wide flex items-center gap-1">
                         {game.homeTeam.abbrev}
                         {isHomeWinner && <span className="text-emerald-300 text-xs font-black">✓</span>}
@@ -390,7 +532,6 @@ export default function Home() {
             })
           )}
 
-          {/* Lock In Button */}
           {viewingUserId === user.id && (
             <div className="pt-2">
               <button
@@ -423,18 +564,22 @@ export default function Home() {
                 </div>
 
                 {archive.games?.map((g) => {
-                  const ryanPick = archive.picks?.['user_1']?.find(p => p.gameId === g.gameId)?.selectedTeamId;
-                  const angiPick = archive.picks?.['user_2']?.find(p => p.gameId === g.gameId)?.selectedTeamId;
-                  const maryPick = archive.picks?.['user_3']?.find(p => p.gameId === g.gameId)?.selectedTeamId;
+                  const ryanPick = archive.picks?.['user_1']?.find((p) => p.gameId === g.gameId)?.selectedTeamId;
+                  const angiPick = archive.picks?.['user_2']?.find((p) => p.gameId === g.gameId)?.selectedTeamId;
+                  const maryPick = archive.picks?.['user_3']?.find((p) => p.gameId === g.gameId)?.selectedTeamId;
 
                   const getPickDisplay = (pickId) => {
                     if (!pickId) return '-';
                     const isWinner = g.winnerId && pickId === g.winnerId;
                     const teamAbbrev = pickId === g.homeTeam.id ? g.homeTeam.abbrev : g.awayTeam.abbrev;
                     return (
-                      <span className={`px-2 py-0.5 rounded font-bold text-[11px] ${
-                        isWinner ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40' : 'bg-slate-800 text-slate-300'
-                      }`}>
+                      <span
+                        className={`px-2 py-0.5 rounded font-bold text-[11px] ${
+                          isWinner
+                            ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'
+                            : 'bg-slate-800 text-slate-300'
+                        }`}
+                      >
                         {teamAbbrev} {isWinner ? '✓' : ''}
                       </span>
                     );
@@ -443,8 +588,12 @@ export default function Home() {
                   return (
                     <div key={g.gameId} className="bg-slate-950 p-3 rounded-xl border border-slate-800/80 text-xs">
                       <div className="flex justify-between items-center font-bold text-slate-200 border-b border-slate-800/60 pb-2 mb-2">
-                        <span>{g.awayTeam.abbrev} ({g.awayScore || '0'}) @ {g.homeTeam.abbrev} ({g.homeScore || '0'})</span>
-                        <span className="text-[10px] text-slate-400 uppercase font-normal">{g.isCompleted ? 'Final' : 'In Progress'}</span>
+                        <span>
+                          {g.awayTeam.abbrev} ({g.awayScore || '0'}) @ {g.homeTeam.abbrev} ({g.homeScore || '0'})
+                        </span>
+                        <span className="text-[10px] text-slate-400 uppercase font-normal">
+                          {g.isCompleted ? 'Final' : 'In Progress'}
+                        </span>
                       </div>
 
                       <div className="grid grid-cols-3 gap-2 text-center pt-1">
