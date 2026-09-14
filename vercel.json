@@ -6,7 +6,7 @@
     },
     {
       "path": "/api/cron/update-scores",
-      "schedule": "*/30 17-23,0-5 * * 0,1,4"
+      "schedule": "0 5 * * *"
     }
   ]
 }
