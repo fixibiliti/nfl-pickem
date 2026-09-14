@@ -5,11 +5,10 @@ export default function Home() {
   const [user, setUser] = useState(null);
   const [name, setName] = useState('');
   const [pin, setPin] = useState('');
-  
-  // Live test update
-  // All picks for all players: { user_1: { gameId: teamId }, user_2: { ... } }
+
+  // All picks mapped by user ID: { user_1: { gameId: teamId } }
   const [allPicks, setAllPicks] = useState({});
-  // Which player's picks are currently being viewed on the screen
+  // Which player's picks are currently displayed
   const [viewingUserId, setViewingUserId] = useState(null);
 
   const [slate, setSlate] = useState([]);
@@ -21,7 +20,7 @@ export default function Home() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // Check Wednesday 11:59 PM lockout rule
+  // Wednesday 11:59 PM lockout rule
   useEffect(() => {
     const now = new Date();
     const day = now.getDay(); // Wed = 3, Thu = 4, Fri = 5, Sat = 6, Sun = 0, Mon = 1
@@ -33,7 +32,6 @@ export default function Home() {
     }
   }, []);
 
-  // Fetch games, scores, and all player picks
   const loadSlateAndScores = async (currentUserId) => {
     try {
       const res = await fetch('/api/slate');
@@ -42,7 +40,6 @@ export default function Home() {
       setStandings(data.standings || []);
       setWeek(data.week || 1);
 
-      // Reformat all picks into easy lookup maps: { [userId]: { [gameId]: teamId } }
       const formattedAllPicks = {};
       if (data.picks) {
         Object.entries(data.picks).forEach(([uid, userPickList]) => {
@@ -89,7 +86,6 @@ export default function Home() {
     }
   };
 
-  // Only allow picking if it's the logged-in user viewing their own picks and picks are open
   const selectWinner = (gameId, teamId) => {
     if (isLocked || viewingUserId !== user?.id) return;
 
@@ -120,7 +116,6 @@ export default function Home() {
     }
   };
 
-  // Helper to get currently viewed player's name
   const viewingPlayerName = standings.find(s => s.id === viewingUserId)?.name || user?.name;
   const currentDisplayedPicks = allPicks[viewingUserId] || {};
 
@@ -216,7 +211,7 @@ export default function Home() {
         </button>
       </div>
 
-      {/* Interactive 3-Player Season Leaderboard Card */}
+      {/* Leaderboard */}
       <section className="p-4 mx-3 my-3 bg-slate-900 border border-slate-800 rounded-2xl shadow-sm">
         <div className="flex justify-between items-center mb-2.5">
           <h2 className="text-[11px] uppercase tracking-wider font-bold text-slate-400">Season Leaderboard</h2>
@@ -231,7 +226,7 @@ export default function Home() {
                 key={player.id}
                 onClick={() => {
                   setViewingUserId(player.id);
-                  setActiveTab('slate'); // Jump to slate tab when player is clicked
+                  setActiveTab('slate');
                 }}
                 className={`p-2.5 rounded-xl border text-center transition-all cursor-pointer active:scale-95 ${
                   isViewingThisPlayer
@@ -266,7 +261,6 @@ export default function Home() {
             </span>
           </div>
 
-          {/* Banner if inspecting someone else */}
           {viewingUserId !== user.id && (
             <div className="bg-slate-900/80 border border-slate-800 p-2.5 rounded-xl text-center text-xs text-slate-400 flex items-center justify-between px-3">
               <span>Viewing <strong>{viewingPlayerName}</strong>'s slate (Read-Only)</span>
@@ -286,108 +280,99 @@ export default function Home() {
             </div>
           ) : (
             slate.map((game, idx) => {
-  const isAwaySelected = currentDisplayedPicks[game.gameId] === game.awayTeam.id;
-  const isHomeSelected = currentDisplayedPicks[game.gameId] === game.homeTeam.id;
-  const canEditThisSlate = !isLocked && viewingUserId === user.id && !game.isCompleted;
+              const isAwaySelected = currentDisplayedPicks[game.gameId] === game.awayTeam.id;
+              const isHomeSelected = currentDisplayedPicks[game.gameId] === game.homeTeam.id;
+              const canEditThisSlate = !isLocked && viewingUserId === user.id && !game.isCompleted;
 
-  const isAwayWinner = game.isCompleted && game.winnerId === game.awayTeam.id;
-  const isHomeWinner = game.isCompleted && game.winnerId === game.homeTeam.id;
+              const isAwayWinner = game.isCompleted && game.winnerId === game.awayTeam.id;
+              const isHomeWinner = game.isCompleted && game.winnerId === game.homeTeam.id;
 
-  return (
-    <div key={game.gameId} className="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-sm">
-      {/* Card Header: Matchup info, Date/Time & Final Badge */}
-      <div className="flex justify-between items-center text-[11px] text-slate-400 mb-3 border-b border-slate-800/80 pb-2 font-medium">
-        <span className="text-emerald-400 font-semibold">Matchup {idx + 1} • {game.dayOfWeek}</span>
-        <div className="flex items-center space-x-2">
-          {game.isCompleted ? (
-            <span className="bg-slate-800 text-amber-400 font-bold px-2 py-0.5 rounded text-[10px] tracking-wider border border-amber-400/20">
-              FINAL
-            </span>
-          ) : (
-            <span>
-              {new Date(game.date).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: '2-digit' })} • {new Date(game.date).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
-            </span>
+              return (
+                <div key={game.gameId} className="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-sm">
+                  <div className="flex justify-between items-center text-[11px] text-slate-400 mb-3 border-b border-slate-800/80 pb-2 font-medium">
+                    <span className="text-emerald-400 font-semibold">Matchup {idx + 1} • {game.dayOfWeek}</span>
+                    <div className="flex items-center space-x-2">
+                      {game.isCompleted ? (
+                        <span className="bg-slate-800 text-amber-400 font-bold px-2 py-0.5 rounded text-[10px] tracking-wider border border-amber-400/20">
+                          FINAL
+                        </span>
+                      ) : (
+                        <span>
+                          {new Date(game.date).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: '2-digit' })} • {new Date(game.date).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    {/* Away Team */}
+                    <button
+                      type="button"
+                      onClick={() => selectWinner(game.gameId, game.awayTeam.id)}
+                      disabled={!canEditThisSlate}
+                      className={`relative flex flex-col items-center justify-center p-3 rounded-xl border transition-all ${
+                        canEditThisSlate ? 'active:scale-95 cursor-pointer' : 'cursor-default'
+                      } ${
+                        isAwaySelected
+                          ? 'bg-emerald-600 border-emerald-400 text-white shadow-md'
+                          : 'bg-slate-950 border-slate-800 text-slate-300'
+                      }`}
+                    >
+                      {game.awayTeam.logo && (
+                        <img src={game.awayTeam.logo} alt={game.awayTeam.name} className="w-9 h-9 object-contain mb-1.5" />
+                      )}
+                      <span className="font-bold text-sm tracking-wide flex items-center gap-1">
+                        {game.awayTeam.abbrev}
+                        {isAwayWinner && <span className="text-emerald-300 text-xs font-black">✓</span>}
+                      </span>
+                      <span className="text-[10px] text-slate-400 truncate w-full text-center">{game.awayTeam.name}</span>
+
+                      {game.isCompleted && game.awayScore !== null && (
+                        <div className={`mt-2 px-2.5 py-0.5 rounded-full text-xs font-black ${
+                          isAwayWinner ? 'bg-emerald-400 text-slate-950 shadow-sm' : 'bg-slate-800 text-slate-400'
+                        }`}>
+                          {game.awayScore}
+                        </div>
+                      )}
+                    </button>
+
+                    {/* Home Team */}
+                    <button
+                      type="button"
+                      onClick={() => selectWinner(game.gameId, game.homeTeam.id)}
+                      disabled={!canEditThisSlate}
+                      className={`relative flex flex-col items-center justify-center p-3 rounded-xl border transition-all ${
+                        canEditThisSlate ? 'active:scale-95 cursor-pointer' : 'cursor-default'
+                      } ${
+                        isHomeSelected
+                          ? 'bg-emerald-600 border-emerald-400 text-white shadow-md'
+                          : 'bg-slate-950 border-slate-800 text-slate-300'
+                      }`}
+                    >
+                      {game.homeTeam.logo && (
+                        <img src={game.homeTeam.logo} alt={game.homeTeam.name} className="w-9 h-9 object-contain mb-1.5" />
+                      )}
+                      <span className="font-bold text-sm tracking-wide flex items-center gap-1">
+                        {game.homeTeam.abbrev}
+                        {isHomeWinner && <span className="text-emerald-300 text-xs font-black">✓</span>}
+                      </span>
+                      <span className="text-[10px] text-slate-400 truncate w-full text-center">{game.homeTeam.name}</span>
+
+                      {game.isCompleted && game.homeScore !== null && (
+                        <div className={`mt-2 px-2.5 py-0.5 rounded-full text-xs font-black ${
+                          isHomeWinner ? 'bg-emerald-400 text-slate-950 shadow-sm' : 'bg-slate-800 text-slate-400'
+                        }`}>
+                          {game.homeScore}
+                        </div>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              );
+            })
           )}
-        </div>
-      </div>
 
-      {/* Two-Column Team Selection & Score Boxes */}
-      <div className="grid grid-cols-2 gap-3">
-        {/* Away Team Box */}
-        <button
-          type="button"
-          onClick={() => selectWinner(game.gameId, game.awayTeam.id)}
-          disabled={!canEditThisSlate}
-          className={`relative flex flex-col items-center justify-center p-3 rounded-xl border transition-all ${
-            canEditThisSlate ? 'active:scale-95 cursor-pointer' : 'cursor-default'
-          } ${
-            isAwaySelected
-              ? 'bg-emerald-600 border-emerald-400 text-white shadow-md'
-              : 'bg-slate-950 border-slate-800 text-slate-300'
-          }`}
-        >
-          {/* Team Logo */}
-          {game.awayTeam.logo && (
-            <img src={game.awayTeam.logo} alt={game.awayTeam.name} className="w-9 h-9 object-contain mb-1.5" />
-          )}
-
-          {/* Abbreviation */}
-          <span className="font-bold text-sm tracking-wide flex items-center gap-1">
-            {game.awayTeam.abbrev}
-            {isAwayWinner && <span className="text-emerald-300 text-xs font-black">✓</span>}
-          </span>
-          <span className="text-[10px] text-slate-400 truncate w-full text-center">{game.awayTeam.name}</span>
-
-          {/* Final Score Pill */}
-          {game.isCompleted && game.awayScore !== null && (
-            <div className={`mt-2 px-2.5 py-0.5 rounded-full text-xs font-black ${
-              isAwayWinner ? 'bg-emerald-400 text-slate-950 shadow-sm' : 'bg-slate-800 text-slate-400'
-            }`}>
-              {game.awayScore}
-            </div>
-          )}
-        </button>
-
-        {/* Home Team Box */}
-        <button
-          type="button"
-          onClick={() => selectWinner(game.gameId, game.homeTeam.id)}
-          disabled={!canEditThisSlate}
-          className={`relative flex flex-col items-center justify-center p-3 rounded-xl border transition-all ${
-            canEditThisSlate ? 'active:scale-95 cursor-pointer' : 'cursor-default'
-          } ${
-            isHomeSelected
-              ? 'bg-emerald-600 border-emerald-400 text-white shadow-md'
-              : 'bg-slate-950 border-slate-800 text-slate-300'
-          }`}
-        >
-          {/* Team Logo */}
-          {game.homeTeam.logo && (
-            <img src={game.homeTeam.logo} alt={game.homeTeam.name} className="w-9 h-9 object-contain mb-1.5" />
-          )}
-
-          {/* Abbreviation */}
-          <span className="font-bold text-sm tracking-wide flex items-center gap-1">
-            {game.homeTeam.abbrev}
-            {isHomeWinner && <span className="text-emerald-300 text-xs font-black">✓</span>}
-          </span>
-          <span className="text-[10px] text-slate-400 truncate w-full text-center">{game.homeTeam.name}</span>
-
-          {/* Final Score Pill */}
-          {game.isCompleted && game.homeScore !== null && (
-            <div className={`mt-2 px-2.5 py-0.5 rounded-full text-xs font-black ${
-              isHomeWinner ? 'bg-emerald-400 text-slate-950 shadow-sm' : 'bg-slate-800 text-slate-400'
-            }`}>
-              {game.homeScore}
-            </div>
-          )}
-        </button>
-      </div>
-    </div>
-  );
-})
-
-          {/* Only show Lock In button if viewing your own picks */}
+          {/* Lock In Button */}
           {viewingUserId === user.id && (
             <div className="pt-2">
               <button
