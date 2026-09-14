@@ -25,38 +25,26 @@ export default function Home() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // 1. Live Countdown Timer & Lockout Calculation
+// 1. Dynamic Earliest-Kickoff Countdown & Lockout
   useEffect(() => {
+    if (!slate || slate.length === 0) return;
+
     const updateCountdown = () => {
-      const now = new Date();
-      const currentDay = now.getDay(); // 0 = Sun, 1 = Mon, 2 = Tue, 3 = Wed, 4 = Thu, 5 = Fri, 6 = Sat
+      const now = new Date().getTime();
+      const kickoffTimestamps = slate
+        .map(g => new Date(g.date).getTime())
+        .filter(t => !isNaN(t));
 
-      // Find the upcoming Wednesday of the current cycle
-      // If today is Thu (4), Fri (5), Sat (6), Sun (0), or Mon (1), picks are locked
-      // Picks unlock on Tuesday (day 2) when the new slate drops
-      const isPastLock = [4, 5, 6, 0, 1].includes(currentDay) || (currentDay === 3 && (now.getHours() > 23 || (now.getHours() === 23 && now.getMinutes() >= 59)));
+      if (kickoffTimestamps.length === 0) return;
 
-      if (isPastLock) {
-        setIsLocked(true);
-        setTimeLeft('Picks Closed');
-        return;
-      }
-
-      // If we are here, it is Tuesday or Wednesday before 11:59:59 PM
-      setIsLocked(false);
-
-      // Target is Wednesday 23:59:59 of this current week
-      const target = new Date(now);
-      const daysUntilWed = (3 - currentDay + 7) % 7;
-      target.setDate(now.getDate() + daysUntilWed);
-      target.setHours(23, 59, 59, 999);
-
-      const diff = target.getTime() - now.getTime();
+      const earliestKickoff = Math.min(...kickoffTimestamps);
+      const diff = earliestKickoff - now;
 
       if (diff <= 0) {
         setIsLocked(true);
         setTimeLeft('Picks Closed');
       } else {
+        setIsLocked(false);
         const totalSeconds = Math.floor(diff / 1000);
         const days = Math.floor(totalSeconds / 86400);
         const hours = Math.floor((totalSeconds % 86400) / 3600);
@@ -74,7 +62,7 @@ export default function Home() {
     updateCountdown();
     const interval = setInterval(updateCountdown, 1000);
     return () => clearInterval(interval);
-  }, []);
+  }, [slate]);
 
   // 2. Persistent Login Check
   useEffect(() => {
@@ -347,12 +335,19 @@ export default function Home() {
             >
               {isLocked ? 'Picks Locked' : 'Picks Open'}
             </span>
-            {/* Live Countdown Display */}
-            <span className="text-[11px] font-mono font-medium text-slate-400 mt-1">
-              {isLocked ? '🔒 Closed' : `⏳ Locks in: ${timeLeft}`}
+            <span className="text-[11px] font-mono font-medium text-slate-300 mt-1">
+              {isLocked ? '🔒 Closed' : `⏳ ${timeLeft}`}
             </span>
+            {!isLocked && slate.length > 0 && (
+              <span className="text-[9px] text-slate-400">
+                {(() => {
+                  const sorted = [...slate].sort((a, b) => new Date(a.date) - new Date(b.date));
+                  const first = sorted[0];
+                  return `First Kickoff: ${first.dayOfWeek.slice(0, 3)} @ ${new Date(first.date).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`;
+                })()}
+              </span>
+            )}
           </div>
-        </div>
       </header>
 
       {/* Navigation Tabs */}
