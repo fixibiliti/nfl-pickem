@@ -8,5 +8,10 @@
     "id": "user_2",
     "name": "Angi",
     "pin": "4321"
+  },
+  {
+    "id": "user_3",
+    "name": "Mary",
+    "pin": "4321"
   }
 ]

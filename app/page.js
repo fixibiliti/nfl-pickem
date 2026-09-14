@@ -8,13 +8,13 @@ export default function Home() {
   const [picks, setPicks] = useState({});
   const [slate, setSlate] = useState([]);
   const [standings, setStandings] = useState([]);
+  const [historyData, setHistoryData] = useState([]);
+  const [activeTab, setActiveTab] = useState('slate'); // 'slate' or 'history'
   const [week, setWeek] = useState(1);
   const [isLocked, setIsLocked] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [savedSuccess, setSavedSuccess] = useState(false);
 
-  // Check Wednesday 11:59 PM lockout rule
   useEffect(() => {
     const now = new Date();
     const day = now.getDay(); // Wed = 3, Thu = 4, Fri = 5, Sat = 6, Sun = 0, Mon = 1
@@ -26,7 +26,6 @@ export default function Home() {
     }
   }, []);
 
-  // Fetch games & scores after login
   const loadSlateAndScores = async (userId) => {
     try {
       const res = await fetch('/api/slate');
@@ -35,7 +34,6 @@ export default function Home() {
       setStandings(data.standings || []);
       setWeek(data.week || 1);
 
-      // Load existing picks if already submitted
       if (data.picks && data.picks[userId]) {
         const userSaved = {};
         data.picks[userId].forEach(p => {
@@ -45,6 +43,16 @@ export default function Home() {
       }
     } catch (err) {
       console.error('Failed to load slate:', err);
+    }
+  };
+
+  const loadHistory = async () => {
+    try {
+      const res = await fetch('/api/history');
+      const data = await res.json();
+      setHistoryData(data.history || []);
+    } catch (err) {
+      console.error('Failed to load history:', err);
     }
   };
 
@@ -60,6 +68,7 @@ export default function Home() {
     if (res.ok) {
       setUser(data.user);
       loadSlateAndScores(data.user.id);
+      loadHistory();
     } else {
       setError(data.error || 'Invalid Name or PIN');
     }
@@ -76,7 +85,6 @@ export default function Home() {
       return;
     }
     setLoading(true);
-    setSavedSuccess(false);
     const res = await fetch('/api/picks', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -84,7 +92,6 @@ export default function Home() {
     });
     setLoading(false);
     if (res.ok) {
-      setSavedSuccess(true);
       alert('Picks locked in successfully! Good luck!');
     }
   };
@@ -97,7 +104,7 @@ export default function Home() {
           <div className="text-center mb-6">
             <span className="text-4xl">🏈</span>
             <h1 className="text-2xl font-black text-emerald-400 tracking-tight mt-2">NFL 5-PICK'EM</h1>
-            <p className="text-xs text-slate-400 mt-1">Ryan vs. Angi • Season Challenge</p>
+            <p className="text-xs text-slate-400 mt-1">Ryan vs. Angi vs. Mary • 2026 Challenge</p>
           </div>
 
           <form onSubmit={handleLogin} className="space-y-4">
@@ -111,6 +118,7 @@ export default function Home() {
                 <option value="">Choose your name...</option>
                 <option value="Ryan">Ryan</option>
                 <option value="Angi">Angi</option>
+                <option value="Mary">Mary</option>
               </select>
             </div>
             <div>
@@ -140,7 +148,7 @@ export default function Home() {
   // 2. MAIN DASHBOARD SCREEN
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 pb-20 font-sans max-w-lg mx-auto">
-      {/* Sticky Mobile Header */}
+      {/* Top Header */}
       <header className="sticky top-0 z-50 bg-slate-900/95 backdrop-blur border-b border-slate-800 px-4 py-3 flex justify-between items-center shadow-md">
         <div>
           <h1 className="text-base font-black text-emerald-400 tracking-wide">NFL 5-PICK'EM</h1>
@@ -153,106 +161,201 @@ export default function Home() {
         </span>
       </header>
 
-      {/* Season Standings Card */}
+      {/* Navigation Tabs: Current Slate vs. Season Recap */}
+      <div className="flex bg-slate-900 border-b border-slate-800 px-3 pt-2">
+        <button
+          onClick={() => setActiveTab('slate')}
+          className={`flex-1 py-2.5 text-xs font-bold transition border-b-2 text-center ${
+            activeTab === 'slate'
+              ? 'border-emerald-400 text-emerald-400'
+              : 'border-transparent text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          Weekly Picks
+        </button>
+        <button
+          onClick={() => {
+            setActiveTab('history');
+            loadHistory();
+          }}
+          className={`flex-1 py-2.5 text-xs font-bold transition border-b-2 text-center ${
+            activeTab === 'history'
+              ? 'border-emerald-400 text-emerald-400'
+              : 'border-transparent text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          Season Recap 📜
+        </button>
+      </div>
+
+      {/* 3-Player Season Standings Card */}
       <section className="p-4 mx-3 my-3 bg-slate-900 border border-slate-800 rounded-2xl shadow-sm">
         <h2 className="text-[11px] uppercase tracking-wider font-bold text-slate-400 mb-2.5">Season Leaderboard</h2>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-3 gap-2">
           {standings.map(player => (
             <div
               key={player.id}
-              className={`p-3 rounded-xl border text-center ${
+              className={`p-2.5 rounded-xl border text-center ${
                 player.name === user.name
                   ? 'bg-slate-800/80 border-emerald-500/50'
                   : 'bg-slate-950 border-slate-800'
               }`}
             >
-              <span className="text-xs text-slate-400 font-semibold block">{player.name}</span>
-              <span className="text-2xl font-black text-white">
-                {player.totalScore} <span className="text-xs font-normal text-slate-500">pts</span>
+              <span className="text-[11px] text-slate-400 font-semibold block truncate">{player.name}</span>
+              <span className="text-xl font-black text-white">
+                {player.totalScore || 0} <span className="text-[10px] font-normal text-slate-500">pts</span>
               </span>
             </div>
           ))}
         </div>
       </section>
 
-      {/* Matchup Slate */}
-      <main className="px-3 space-y-3">
-        <div className="flex justify-between items-center px-1">
-          <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Week {week} Slate</span>
-          <span className="text-xs font-bold text-emerald-400">{Object.keys(picks).length}/5 Selected</span>
-        </div>
-
-        {slate.length === 0 ? (
-          <div className="p-8 text-center bg-slate-900 border border-slate-800 rounded-2xl text-slate-400 text-sm">
-            Loading weekly matchups...
+      {/* TAB 1: WEEKLY PICKS SLATE */}
+      {activeTab === 'slate' && (
+        <main className="px-3 space-y-3">
+          <div className="flex justify-between items-center px-1">
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Week {week} Slate</span>
+            <span className="text-xs font-bold text-emerald-400">{Object.keys(picks).length}/5 Selected</span>
           </div>
-        ) : (
-          slate.map((game, idx) => {
-            const isAwaySelected = picks[game.gameId] === game.awayTeam.id;
-            const isHomeSelected = picks[game.gameId] === game.homeTeam.id;
 
-            return (
-              <div key={game.gameId} className="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-sm">
-                <div className="flex justify-between items-center text-[11px] text-slate-400 mb-3 border-b border-slate-800/80 pb-2 font-medium">
-                  <span className="text-emerald-400 font-semibold">Matchup {idx + 1} • {game.dayOfWeek}</span>
-                  <span>
-                    {new Date(game.date).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: '2-digit' })} • {new Date(game.date).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
-                  </span>
+          {slate.length === 0 ? (
+            <div className="p-8 text-center bg-slate-900 border border-slate-800 rounded-2xl text-slate-400 text-sm">
+              Loading weekly matchups...
+            </div>
+          ) : (
+            slate.map((game, idx) => {
+              const isAwaySelected = picks[game.gameId] === game.awayTeam.id;
+              const isHomeSelected = picks[game.gameId] === game.homeTeam.id;
+
+              return (
+                <div key={game.gameId} className="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-sm">
+                  <div className="flex justify-between items-center text-[11px] text-slate-400 mb-3 border-b border-slate-800/80 pb-2 font-medium">
+                    <span className="text-emerald-400 font-semibold">Matchup {idx + 1} • {game.dayOfWeek}</span>
+                    <span>
+                      {new Date(game.date).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: '2-digit' })} • {new Date(game.date).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    {/* Away Team */}
+                    <button
+                      type="button"
+                      onClick={() => selectWinner(game.gameId, game.awayTeam.id)}
+                      disabled={isLocked}
+                      className={`flex flex-col items-center justify-center p-3 rounded-xl border transition-all active:scale-95 ${
+                        isAwaySelected
+                          ? 'bg-emerald-600 border-emerald-400 text-white shadow-md'
+                          : 'bg-slate-950 border-slate-800 hover:border-slate-700 text-slate-300'
+                      }`}
+                    >
+                      {game.awayTeam.logo && (
+                        <img src={game.awayTeam.logo} alt={game.awayTeam.name} className="w-9 h-9 object-contain mb-1.5" />
+                      )}
+                      <span className="font-bold text-sm tracking-wide">{game.awayTeam.abbrev}</span>
+                      <span className="text-[10px] text-slate-400 truncate w-full text-center">{game.awayTeam.name}</span>
+                    </button>
+
+                    {/* Home Team */}
+                    <button
+                      type="button"
+                      onClick={() => selectWinner(game.gameId, game.homeTeam.id)}
+                      disabled={isLocked}
+                      className={`flex flex-col items-center justify-center p-3 rounded-xl border transition-all active:scale-95 ${
+                        isHomeSelected
+                          ? 'bg-emerald-600 border-emerald-400 text-white shadow-md'
+                          : 'bg-slate-950 border-slate-800 hover:border-slate-700 text-slate-300'
+                      }`}
+                    >
+                      {game.homeTeam.logo && (
+                        <img src={game.homeTeam.logo} alt={game.homeTeam.name} className="w-9 h-9 object-contain mb-1.5" />
+                      )}
+                      <span className="font-bold text-sm tracking-wide">{game.homeTeam.abbrev}</span>
+                      <span className="text-[10px] text-slate-400 truncate w-full text-center">{game.homeTeam.name}</span>
+                    </button>
+                  </div>
+                </div>
+              );
+            })
+          )}
+
+          <div className="pt-2">
+            <button
+              onClick={submitPicks}
+              disabled={isLocked || Object.keys(picks).length < 5 || loading}
+              className="w-full py-4 rounded-xl font-black text-sm bg-emerald-500 hover:bg-emerald-400 disabled:bg-slate-800 disabled:text-slate-600 text-slate-950 shadow-lg transition active:scale-98"
+            >
+              {loading ? 'SAVING PICKS...' : isLocked ? 'PICKS CLOSED FOR THIS WEEK' : 'LOCK IN PICKS'}
+            </button>
+          </div>
+        </main>
+      )}
+
+      {/* TAB 2: SEASON RECAP DASHBOARD */}
+      {activeTab === 'history' && (
+        <main className="px-3 space-y-4">
+          <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider px-1">Picks & Results History</h3>
+
+          {historyData.length === 0 ? (
+            <div className="p-8 text-center bg-slate-900 border border-slate-800 rounded-2xl text-slate-400 text-sm">
+              No completed weeks archived yet. History will show final scores and everyone's picks once games conclude!
+            </div>
+          ) : (
+            historyData.map((archive) => (
+              <div key={archive.week} className="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-sm space-y-3">
+                <div className="flex justify-between items-center border-b border-slate-800 pb-2">
+                  <span className="font-black text-emerald-400 text-sm">WEEK {archive.week}</span>
+                  <span className="text-[11px] text-slate-400">Final Results</span>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
-                  {/* Away Team */}
-                  <button
-                    type="button"
-                    onClick={() => selectWinner(game.gameId, game.awayTeam.id)}
-                    disabled={isLocked}
-                    className={`flex flex-col items-center justify-center p-3 rounded-xl border transition-all active:scale-95 ${
-                      isAwaySelected
-                        ? 'bg-emerald-600 border-emerald-400 text-white shadow-md'
-                        : 'bg-slate-950 border-slate-800 hover:border-slate-700 text-slate-300'
-                    }`}
-                  >
-                    {game.awayTeam.logo && (
-                      <img src={game.awayTeam.logo} alt={game.awayTeam.name} className="w-9 h-9 object-contain mb-1.5" />
-                    )}
-                    <span className="font-bold text-sm tracking-wide">{game.awayTeam.abbrev}</span>
-                    <span className="text-[10px] text-slate-400 truncate w-full text-center">{game.awayTeam.name}</span>
-                  </button>
+                {archive.games?.map((g) => {
+                  const ryanPick = archive.picks?.['user_1']?.find(p => p.gameId === g.gameId)?.selectedTeamId;
+                  const angiPick = archive.picks?.['user_2']?.find(p => p.gameId === g.gameId)?.selectedTeamId;
+                  const maryPick = archive.picks?.['user_3']?.find(p => p.gameId === g.gameId)?.selectedTeamId;
 
-                  {/* Home Team */}
-                  <button
-                    type="button"
-                    onClick={() => selectWinner(game.gameId, game.homeTeam.id)}
-                    disabled={isLocked}
-                    className={`flex flex-col items-center justify-center p-3 rounded-xl border transition-all active:scale-95 ${
-                      isHomeSelected
-                        ? 'bg-emerald-600 border-emerald-400 text-white shadow-md'
-                        : 'bg-slate-950 border-slate-800 hover:border-slate-700 text-slate-300'
-                    }`}
-                  >
-                    {game.homeTeam.logo && (
-                      <img src={game.homeTeam.logo} alt={game.homeTeam.name} className="w-9 h-9 object-contain mb-1.5" />
-                    )}
-                    <span className="font-bold text-sm tracking-wide">{game.homeTeam.abbrev}</span>
-                    <span className="text-[10px] text-slate-400 truncate w-full text-center">{game.homeTeam.name}</span>
-                  </button>
-                </div>
+                  const getPickDisplay = (pickId) => {
+                    if (!pickId) return '-';
+                    const isWinner = g.winnerId && pickId === g.winnerId;
+                    const teamAbbrev = pickId === g.homeTeam.id ? g.homeTeam.abbrev : g.awayTeam.abbrev;
+                    return (
+                      <span className={`px-2 py-0.5 rounded font-bold text-[11px] ${
+                        isWinner ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40' : 'bg-slate-800 text-slate-300'
+                      }`}>
+                        {teamAbbrev} {isWinner ? '✓' : ''}
+                      </span>
+                    );
+                  };
+
+                  return (
+                    <div key={g.gameId} className="bg-slate-950 p-3 rounded-xl border border-slate-800/80 text-xs">
+                      {/* Game Score Row */}
+                      <div className="flex justify-between items-center font-bold text-slate-200 border-b border-slate-800/60 pb-2 mb-2">
+                        <span>{g.awayTeam.abbrev} ({g.awayScore || '0'}) @ {g.homeTeam.abbrev} ({g.homeScore || '0'})</span>
+                        <span className="text-[10px] text-slate-400 uppercase font-normal">{g.isCompleted ? 'Final' : 'In Progress'}</span>
+                      </div>
+
+                      {/* Picks at a Glance */}
+                      <div className="grid grid-cols-3 gap-2 text-center pt-1">
+                        <div>
+                          <span className="text-[10px] text-slate-500 block mb-1">Ryan</span>
+                          {getPickDisplay(ryanPick)}
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-slate-500 block mb-1">Angi</span>
+                          {getPickDisplay(angiPick)}
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-slate-500 block mb-1">Mary</span>
+                          {getPickDisplay(maryPick)}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-            );
-          })
-        )}
-
-        {/* Lock In Button */}
-        <div className="pt-2">
-          <button
-            onClick={submitPicks}
-            disabled={isLocked || Object.keys(picks).length < 5 || loading}
-            className="w-full py-4 rounded-xl font-black text-sm bg-emerald-500 hover:bg-emerald-400 disabled:bg-slate-800 disabled:text-slate-600 text-slate-950 shadow-lg transition active:scale-98"
-          >
-            {loading ? 'SAVING PICKS...' : isLocked ? 'PICKS CLOSED FOR THIS WEEK' : 'LOCK IN PICKS'}
-          </button>
-        </div>
-      </main>
+            ))
+          )}
+        </main>
+      )}
     </div>
   );
 }

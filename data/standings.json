@@ -8,5 +8,10 @@
     "id": "user_2",
     "name": "Angi",
     "totalScore": 0
+  },
+  {
+    "id": "user_3",
+    "name": "Mary",
+    "totalScore": 0
   }
 ]
