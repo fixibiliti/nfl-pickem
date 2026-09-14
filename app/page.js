@@ -6,6 +6,7 @@ export default function Home() {
   const [name, setName] = useState('');
   const [pin, setPin] = useState('');
   
+  // Live test update
   // All picks for all players: { user_1: { gameId: teamId }, user_2: { ... } }
   const [allPicks, setAllPicks] = useState({});
   // Which player's picks are currently being viewed on the screen
