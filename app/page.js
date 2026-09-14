@@ -195,7 +195,9 @@ export default function Home() {
               <div key={game.gameId} className="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-sm">
                 <div className="flex justify-between items-center text-[11px] text-slate-400 mb-3 border-b border-slate-800/80 pb-2 font-medium">
                   <span className="text-emerald-400 font-semibold">Matchup {idx + 1} • {game.dayOfWeek}</span>
-                  <span>{new Date(game.date).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</span>
+                  <span>
+                    {new Date(game.date).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: '2-digit' })} • {new Date(game.date).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                  </span>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
