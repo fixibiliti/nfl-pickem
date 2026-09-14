@@ -5,7 +5,12 @@ export default function Home() {
   const [user, setUser] = useState(null);
   const [name, setName] = useState('');
   const [pin, setPin] = useState('');
-  const [picks, setPicks] = useState({});
+  
+  // All picks for all players: { user_1: { gameId: teamId }, user_2: { ... } }
+  const [allPicks, setAllPicks] = useState({});
+  // Which player's picks are currently being viewed on the screen
+  const [viewingUserId, setViewingUserId] = useState(null);
+
   const [slate, setSlate] = useState([]);
   const [standings, setStandings] = useState([]);
   const [historyData, setHistoryData] = useState([]);
@@ -15,6 +20,7 @@ export default function Home() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
+  // Check Wednesday 11:59 PM lockout rule
   useEffect(() => {
     const now = new Date();
     const day = now.getDay(); // Wed = 3, Thu = 4, Fri = 5, Sat = 6, Sun = 0, Mon = 1
@@ -26,7 +32,8 @@ export default function Home() {
     }
   }, []);
 
-  const loadSlateAndScores = async (userId) => {
+  // Fetch games, scores, and all player picks
+  const loadSlateAndScores = async (currentUserId) => {
     try {
       const res = await fetch('/api/slate');
       const data = await res.json();
@@ -34,13 +41,20 @@ export default function Home() {
       setStandings(data.standings || []);
       setWeek(data.week || 1);
 
-      if (data.picks && data.picks[userId]) {
-        const userSaved = {};
-        data.picks[userId].forEach(p => {
-          userSaved[p.gameId] = p.selectedTeamId;
+      // Reformat all picks into easy lookup maps: { [userId]: { [gameId]: teamId } }
+      const formattedAllPicks = {};
+      if (data.picks) {
+        Object.entries(data.picks).forEach(([uid, userPickList]) => {
+          formattedAllPicks[uid] = {};
+          if (Array.isArray(userPickList)) {
+            userPickList.forEach(p => {
+              formattedAllPicks[uid][p.gameId] = p.selectedTeamId;
+            });
+          }
         });
-        setPicks(userSaved);
       }
+      setAllPicks(formattedAllPicks);
+      setViewingUserId(currentUserId);
     } catch (err) {
       console.error('Failed to load slate:', err);
     }
@@ -74,13 +88,22 @@ export default function Home() {
     }
   };
 
+  // Only allow picking if it's the logged-in user viewing their own picks and picks are open
   const selectWinner = (gameId, teamId) => {
-    if (isLocked) return;
-    setPicks(prev => ({ ...prev, [gameId]: teamId }));
+    if (isLocked || viewingUserId !== user?.id) return;
+
+    setAllPicks(prev => ({
+      ...prev,
+      [user.id]: {
+        ...(prev[user.id] || {}),
+        [gameId]: teamId
+      }
+    }));
   };
 
   const submitPicks = async () => {
-    if (Object.keys(picks).length < 5) {
+    const myPicks = allPicks[user.id] || {};
+    if (Object.keys(myPicks).length < 5) {
       alert('Please make a pick for all 5 games!');
       return;
     }
@@ -88,13 +111,17 @@ export default function Home() {
     const res = await fetch('/api/picks', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId: user.id, picks })
+      body: JSON.stringify({ userId: user.id, picks: myPicks })
     });
     setLoading(false);
     if (res.ok) {
       alert('Picks locked in successfully! Good luck!');
     }
   };
+
+  // Helper to get currently viewed player's name
+  const viewingPlayerName = standings.find(s => s.id === viewingUserId)?.name || user?.name;
+  const currentDisplayedPicks = allPicks[viewingUserId] || {};
 
   // 1. LOGIN SCREEN
   if (!user) {
@@ -152,7 +179,7 @@ export default function Home() {
       <header className="sticky top-0 z-50 bg-slate-900/95 backdrop-blur border-b border-slate-800 px-4 py-3 flex justify-between items-center shadow-md">
         <div>
           <h1 className="text-base font-black text-emerald-400 tracking-wide">NFL 5-PICK'EM</h1>
-          <p className="text-xs text-slate-400">Player: <span className="text-white font-bold">{user.name}</span></p>
+          <p className="text-xs text-slate-400">Logged in: <span className="text-white font-bold">{user.name}</span></p>
         </div>
         <span className={`text-[10px] px-2.5 py-1 rounded-full font-bold uppercase tracking-wider ${
           isLocked ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30' : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
@@ -161,7 +188,7 @@ export default function Home() {
         </span>
       </header>
 
-      {/* Navigation Tabs: Current Slate vs. Season Recap */}
+      {/* Navigation Tabs */}
       <div className="flex bg-slate-900 border-b border-slate-800 px-3 pt-2">
         <button
           onClick={() => setActiveTab('slate')}
@@ -188,25 +215,41 @@ export default function Home() {
         </button>
       </div>
 
-      {/* 3-Player Season Standings Card */}
+      {/* Interactive 3-Player Season Leaderboard Card */}
       <section className="p-4 mx-3 my-3 bg-slate-900 border border-slate-800 rounded-2xl shadow-sm">
-        <h2 className="text-[11px] uppercase tracking-wider font-bold text-slate-400 mb-2.5">Season Leaderboard</h2>
+        <div className="flex justify-between items-center mb-2.5">
+          <h2 className="text-[11px] uppercase tracking-wider font-bold text-slate-400">Season Leaderboard</h2>
+          <span className="text-[10px] text-slate-500 font-medium">Click name to view picks</span>
+        </div>
         <div className="grid grid-cols-3 gap-2">
-          {standings.map(player => (
-            <div
-              key={player.id}
-              className={`p-2.5 rounded-xl border text-center ${
-                player.name === user.name
-                  ? 'bg-slate-800/80 border-emerald-500/50'
-                  : 'bg-slate-950 border-slate-800'
-              }`}
-            >
-              <span className="text-[11px] text-slate-400 font-semibold block truncate">{player.name}</span>
-              <span className="text-xl font-black text-white">
-                {player.totalScore || 0} <span className="text-[10px] font-normal text-slate-500">pts</span>
-              </span>
-            </div>
-          ))}
+          {standings.map(player => {
+            const isViewingThisPlayer = player.id === viewingUserId;
+            return (
+              <button
+                type="button"
+                key={player.id}
+                onClick={() => {
+                  setViewingUserId(player.id);
+                  setActiveTab('slate'); // Jump to slate tab when player is clicked
+                }}
+                className={`p-2.5 rounded-xl border text-center transition-all cursor-pointer active:scale-95 ${
+                  isViewingThisPlayer
+                    ? 'bg-emerald-500/15 border-emerald-400 ring-1 ring-emerald-400 shadow-md'
+                    : 'bg-slate-950 border-slate-800 hover:border-slate-700 text-slate-300'
+                }`}
+              >
+                <span className={`text-[11px] font-bold block truncate ${isViewingThisPlayer ? 'text-emerald-400' : 'text-slate-400'}`}>
+                  {player.name} {player.id === user.id ? '★' : ''}
+                </span>
+                <span className="text-xl font-black text-white">
+                  {player.totalScore || 0} <span className="text-[10px] font-normal text-slate-500">pts</span>
+                </span>
+                <span className="text-[9px] block mt-0.5 text-slate-500 uppercase tracking-tight">
+                  {isViewingThisPlayer ? 'Viewing' : 'Tap to View'}
+                </span>
+              </button>
+            );
+          })}
         </div>
       </section>
 
@@ -214,9 +257,27 @@ export default function Home() {
       {activeTab === 'slate' && (
         <main className="px-3 space-y-3">
           <div className="flex justify-between items-center px-1">
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Week {week} Slate</span>
-            <span className="text-xs font-bold text-emerald-400">{Object.keys(picks).length}/5 Selected</span>
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+              Week {week} Slate • <span className="text-emerald-400">{viewingPlayerName}'s Picks</span>
+            </span>
+            <span className="text-xs font-bold text-emerald-400">
+              {Object.keys(currentDisplayedPicks).length}/5 Selected
+            </span>
           </div>
+
+          {/* Banner if inspecting someone else */}
+          {viewingUserId !== user.id && (
+            <div className="bg-slate-900/80 border border-slate-800 p-2.5 rounded-xl text-center text-xs text-slate-400 flex items-center justify-between px-3">
+              <span>Viewing <strong>{viewingPlayerName}</strong>'s slate (Read-Only)</span>
+              <button
+                type="button"
+                onClick={() => setViewingUserId(user.id)}
+                className="text-emerald-400 font-bold hover:underline text-[11px]"
+              >
+                Back to My Picks
+              </button>
+            </div>
+          )}
 
           {slate.length === 0 ? (
             <div className="p-8 text-center bg-slate-900 border border-slate-800 rounded-2xl text-slate-400 text-sm">
@@ -224,8 +285,9 @@ export default function Home() {
             </div>
           ) : (
             slate.map((game, idx) => {
-              const isAwaySelected = picks[game.gameId] === game.awayTeam.id;
-              const isHomeSelected = picks[game.gameId] === game.homeTeam.id;
+              const isAwaySelected = currentDisplayedPicks[game.gameId] === game.awayTeam.id;
+              const isHomeSelected = currentDisplayedPicks[game.gameId] === game.homeTeam.id;
+              const canEditThisSlate = !isLocked && viewingUserId === user.id;
 
               return (
                 <div key={game.gameId} className="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-sm">
@@ -241,11 +303,13 @@ export default function Home() {
                     <button
                       type="button"
                       onClick={() => selectWinner(game.gameId, game.awayTeam.id)}
-                      disabled={isLocked}
-                      className={`flex flex-col items-center justify-center p-3 rounded-xl border transition-all active:scale-95 ${
+                      disabled={!canEditThisSlate}
+                      className={`flex flex-col items-center justify-center p-3 rounded-xl border transition-all ${
+                        canEditThisSlate ? 'active:scale-95 cursor-pointer' : 'cursor-default'
+                      } ${
                         isAwaySelected
                           ? 'bg-emerald-600 border-emerald-400 text-white shadow-md'
-                          : 'bg-slate-950 border-slate-800 hover:border-slate-700 text-slate-300'
+                          : 'bg-slate-950 border-slate-800 text-slate-300'
                       }`}
                     >
                       {game.awayTeam.logo && (
@@ -259,11 +323,13 @@ export default function Home() {
                     <button
                       type="button"
                       onClick={() => selectWinner(game.gameId, game.homeTeam.id)}
-                      disabled={isLocked}
-                      className={`flex flex-col items-center justify-center p-3 rounded-xl border transition-all active:scale-95 ${
+                      disabled={!canEditThisSlate}
+                      className={`flex flex-col items-center justify-center p-3 rounded-xl border transition-all ${
+                        canEditThisSlate ? 'active:scale-95 cursor-pointer' : 'cursor-default'
+                      } ${
                         isHomeSelected
                           ? 'bg-emerald-600 border-emerald-400 text-white shadow-md'
-                          : 'bg-slate-950 border-slate-800 hover:border-slate-700 text-slate-300'
+                          : 'bg-slate-950 border-slate-800 text-slate-300'
                       }`}
                     >
                       {game.homeTeam.logo && (
@@ -278,15 +344,18 @@ export default function Home() {
             })
           )}
 
-          <div className="pt-2">
-            <button
-              onClick={submitPicks}
-              disabled={isLocked || Object.keys(picks).length < 5 || loading}
-              className="w-full py-4 rounded-xl font-black text-sm bg-emerald-500 hover:bg-emerald-400 disabled:bg-slate-800 disabled:text-slate-600 text-slate-950 shadow-lg transition active:scale-98"
-            >
-              {loading ? 'SAVING PICKS...' : isLocked ? 'PICKS CLOSED FOR THIS WEEK' : 'LOCK IN PICKS'}
-            </button>
-          </div>
+          {/* Only show Lock In button if viewing your own picks */}
+          {viewingUserId === user.id && (
+            <div className="pt-2">
+              <button
+                onClick={submitPicks}
+                disabled={isLocked || Object.keys(currentDisplayedPicks).length < 5 || loading}
+                className="w-full py-4 rounded-xl font-black text-sm bg-emerald-500 hover:bg-emerald-400 disabled:bg-slate-800 disabled:text-slate-600 text-slate-950 shadow-lg transition active:scale-98"
+              >
+                {loading ? 'SAVING PICKS...' : isLocked ? 'PICKS CLOSED FOR THIS WEEK' : 'LOCK IN PICKS'}
+              </button>
+            </div>
+          )}
         </main>
       )}
 
@@ -327,13 +396,11 @@ export default function Home() {
 
                   return (
                     <div key={g.gameId} className="bg-slate-950 p-3 rounded-xl border border-slate-800/80 text-xs">
-                      {/* Game Score Row */}
                       <div className="flex justify-between items-center font-bold text-slate-200 border-b border-slate-800/60 pb-2 mb-2">
                         <span>{g.awayTeam.abbrev} ({g.awayScore || '0'}) @ {g.homeTeam.abbrev} ({g.homeScore || '0'})</span>
                         <span className="text-[10px] text-slate-400 uppercase font-normal">{g.isCompleted ? 'Final' : 'In Progress'}</span>
                       </div>
 
-                      {/* Picks at a Glance */}
                       <div className="grid grid-cols-3 gap-2 text-center pt-1">
                         <div>
                           <span className="text-[10px] text-slate-500 block mb-1">Ryan</span>
