@@ -3,7 +3,7 @@ import { readData } from '@/lib/db';
 
 export async function POST(req) {
   const { name, pin } = await req.json();
-  const users = readData('users.json') || [];
+  const users = (await readData('users.json')) || [];
 
   const user = users.find(
     u => u.name.toLowerCase() === name.trim().toLowerCase() && u.pin === pin.trim()

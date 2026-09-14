@@ -7,13 +7,13 @@ export async function GET() {
     const espnData = await fetchCurrentNFLWeek();
     const newSlate = generateWeeklySlate(espnData);
     
-    writeData('current_slate.json', {
+    await writeData('current_slate.json', {
       week: espnData.week?.number || 1,
       createdAt: new Date().toISOString(),
       games: newSlate
     });
 
-    return NextResponse.json({ success: true, count: newSlate.length });
+    return NextResponse.json({ success: true, count: newSlate.length, week: espnData.week?.number });
   } catch (err) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }

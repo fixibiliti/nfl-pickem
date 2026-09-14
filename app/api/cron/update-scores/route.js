@@ -5,9 +5,9 @@ import { readData, writeData } from '@/lib/db';
 export async function GET() {
   try {
     const espnData = await fetchCurrentNFLWeek();
-    const currentSlate = readData('current_slate.json');
-    const picks = readData('picks.json') || {};
-    const standings = readData('standings.json') || [];
+    const currentSlate = await readData('current_slate.json');
+    const picks = (await readData('picks.json')) || {};
+    const standings = (await readData('standings.json')) || [];
 
     if (!currentSlate || !currentSlate.games) {
       return NextResponse.json({ message: 'No active slate to score' });
@@ -33,7 +33,7 @@ export async function GET() {
       };
     });
 
-    writeData('standings.json', updatedStandings);
+    await writeData('standings.json', updatedStandings);
     return NextResponse.json({ success: true, standings: updatedStandings });
   } catch (err) {
     return NextResponse.json({ error: err.message }, { status: 500 });
