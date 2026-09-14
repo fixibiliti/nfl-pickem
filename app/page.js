@@ -289,6 +289,7 @@ export default function Home() {
 
               return (
                 <div key={game.gameId} className="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-sm">
+                  {/* Card Header: Matchup & Date or FINAL */}
                   <div className="flex justify-between items-center text-[11px] text-slate-400 mb-3 border-b border-slate-800/80 pb-2 font-medium">
                     <span className="text-emerald-400 font-semibold">Matchup {idx + 1} • {game.dayOfWeek}</span>
                     <div className="flex items-center space-x-2">
@@ -304,8 +305,9 @@ export default function Home() {
                     </div>
                   </div>
 
+                  {/* 2-Column Grid: Away Team (Left) @ Home Team (Right) */}
                   <div className="grid grid-cols-2 gap-3">
-                    {/* Away Team */}
+                    {/* AWAY TEAM (LEFT SIDE) */}
                     <button
                       type="button"
                       onClick={() => selectWinner(game.gameId, game.awayTeam.id)}
@@ -318,25 +320,33 @@ export default function Home() {
                           : 'bg-slate-950 border-slate-800 text-slate-300'
                       }`}
                     >
-                      {game.awayTeam.logo && (
-                        <img src={game.awayTeam.logo} alt={game.awayTeam.name} className="w-9 h-9 object-contain mb-1.5" />
-                      )}
+                      {/* Logo and Score Side-by-Side */}
+                      <div className="flex items-center justify-center gap-2 mb-1.5 min-h-[36px]">
+                        {game.awayTeam.logo && (
+                          <img src={game.awayTeam.logo} alt={game.awayTeam.name} className="w-9 h-9 object-contain" />
+                        )}
+                        {game.isCompleted && game.awayScore !== null && game.awayScore !== undefined && (
+                          <span className={`text-base font-black px-2 py-0.5 rounded-lg border ${
+                            isAwayWinner
+                              ? 'bg-emerald-400 text-slate-950 border-emerald-300 shadow-sm'
+                              : 'bg-slate-900 text-slate-300 border-slate-700'
+                          }`}>
+                            {game.awayScore}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Team Code & Win Indicator */}
                       <span className="font-bold text-sm tracking-wide flex items-center gap-1">
                         {game.awayTeam.abbrev}
                         {isAwayWinner && <span className="text-emerald-300 text-xs font-black">✓</span>}
                       </span>
-                      <span className="text-[10px] text-slate-400 truncate w-full text-center">{game.awayTeam.name}</span>
-
-                      {game.isCompleted && game.awayScore !== null && (
-                        <div className={`mt-2 px-2.5 py-0.5 rounded-full text-xs font-black ${
-                          isAwayWinner ? 'bg-emerald-400 text-slate-950 shadow-sm' : 'bg-slate-800 text-slate-400'
-                        }`}>
-                          {game.awayScore}
-                        </div>
-                      )}
+                      <span className="text-[10px] text-slate-400 truncate w-full text-center">
+                        {game.awayTeam.name} (Away)
+                      </span>
                     </button>
 
-                    {/* Home Team */}
+                    {/* HOME TEAM (RIGHT SIDE) */}
                     <button
                       type="button"
                       onClick={() => selectWinner(game.gameId, game.homeTeam.id)}
@@ -349,22 +359,30 @@ export default function Home() {
                           : 'bg-slate-950 border-slate-800 text-slate-300'
                       }`}
                     >
-                      {game.homeTeam.logo && (
-                        <img src={game.homeTeam.logo} alt={game.homeTeam.name} className="w-9 h-9 object-contain mb-1.5" />
-                      )}
+                      {/* Logo and Score Side-by-Side */}
+                      <div className="flex items-center justify-center gap-2 mb-1.5 min-h-[36px]">
+                        {game.homeTeam.logo && (
+                          <img src={game.homeTeam.logo} alt={game.homeTeam.name} className="w-9 h-9 object-contain" />
+                        )}
+                        {game.isCompleted && game.homeScore !== null && game.homeScore !== undefined && (
+                          <span className={`text-base font-black px-2 py-0.5 rounded-lg border ${
+                            isHomeWinner
+                              ? 'bg-emerald-400 text-slate-950 border-emerald-300 shadow-sm'
+                              : 'bg-slate-900 text-slate-300 border-slate-700'
+                          }`}>
+                            {game.homeScore}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Team Code & Win Indicator */}
                       <span className="font-bold text-sm tracking-wide flex items-center gap-1">
                         {game.homeTeam.abbrev}
                         {isHomeWinner && <span className="text-emerald-300 text-xs font-black">✓</span>}
                       </span>
-                      <span className="text-[10px] text-slate-400 truncate w-full text-center">{game.homeTeam.name}</span>
-
-                      {game.isCompleted && game.homeScore !== null && (
-                        <div className={`mt-2 px-2.5 py-0.5 rounded-full text-xs font-black ${
-                          isHomeWinner ? 'bg-emerald-400 text-slate-950 shadow-sm' : 'bg-slate-800 text-slate-400'
-                        }`}>
-                          {game.homeScore}
-                        </div>
-                      )}
+                      <span className="text-[10px] text-slate-400 truncate w-full text-center">
+                        {game.homeTeam.name} (Home)
+                      </span>
                     </button>
                   </div>
                 </div>
