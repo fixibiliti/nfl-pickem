@@ -21,19 +21,59 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState('slate');
   const [week, setWeek] = useState(1);
   const [isLocked, setIsLocked] = useState(false);
+  const [timeLeft, setTimeLeft] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // 1. Lockout rule check
+  // 1. Live Countdown Timer & Lockout Calculation
   useEffect(() => {
-    const now = new Date();
-    const day = now.getDay();
-    const hours = now.getHours();
-    const mins = now.getMinutes();
+    const updateCountdown = () => {
+      const now = new Date();
+      const currentDay = now.getDay(); // 0 = Sun, 1 = Mon, 2 = Tue, 3 = Wed, 4 = Thu, 5 = Fri, 6 = Sat
 
-    if ([4, 5, 6, 0, 1].includes(day) || (day === 3 && hours === 23 && mins >= 59)) {
-      setIsLocked(true);
-    }
+      // Find the upcoming Wednesday of the current cycle
+      // If today is Thu (4), Fri (5), Sat (6), Sun (0), or Mon (1), picks are locked
+      // Picks unlock on Tuesday (day 2) when the new slate drops
+      const isPastLock = [4, 5, 6, 0, 1].includes(currentDay) || (currentDay === 3 && (now.getHours() > 23 || (now.getHours() === 23 && now.getMinutes() >= 59)));
+
+      if (isPastLock) {
+        setIsLocked(true);
+        setTimeLeft('Picks Closed');
+        return;
+      }
+
+      // If we are here, it is Tuesday or Wednesday before 11:59:59 PM
+      setIsLocked(false);
+
+      // Target is Wednesday 23:59:59 of this current week
+      const target = new Date(now);
+      const daysUntilWed = (3 - currentDay + 7) % 7;
+      target.setDate(now.getDate() + daysUntilWed);
+      target.setHours(23, 59, 59, 999);
+
+      const diff = target.getTime() - now.getTime();
+
+      if (diff <= 0) {
+        setIsLocked(true);
+        setTimeLeft('Picks Closed');
+      } else {
+        const totalSeconds = Math.floor(diff / 1000);
+        const days = Math.floor(totalSeconds / 86400);
+        const hours = Math.floor((totalSeconds % 86400) / 3600);
+        const minutes = Math.floor((totalSeconds % 3600) / 60);
+        const seconds = totalSeconds % 60;
+
+        if (days > 0) {
+          setTimeLeft(`${days}d ${hours}h ${minutes}m ${seconds}s`);
+        } else {
+          setTimeLeft(`${hours}h ${minutes}m ${seconds}s`);
+        }
+      }
+    };
+
+    updateCountdown();
+    const interval = setInterval(updateCountdown, 1000);
+    return () => clearInterval(interval);
   }, []);
 
   // 2. Persistent Login Check
@@ -181,7 +221,7 @@ export default function Home() {
   const viewingPlayerName = standings.find((s) => s.id === viewingUserId)?.name || user?.name;
   const currentDisplayedPicks = allPicks[viewingUserId] || {};
 
-  // SCREEN A: MANDATORY FIRST-TIME PIN CREATION
+  // SCREEN A: FIRST-TIME PIN CREATION
   if (isChangingPin) {
     return (
       <main className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-center items-center px-4">
@@ -261,7 +301,7 @@ export default function Home() {
               </select>
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-400 mb-1">4-Digit PIN (Temporary: 0000)</label>
+              <label className="block text-xs font-semibold text-slate-400 mb-1">4-Digit PIN</label>
               <input
                 type="password"
                 inputMode="numeric"
@@ -289,22 +329,30 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 pb-20 font-sans max-w-lg mx-auto">
       {/* Top Header */}
-      <header className="sticky top-0 z-50 bg-slate-900/95 backdrop-blur border-b border-slate-800 px-4 py-3 flex justify-between items-center shadow-md">
-        <div>
-          <h1 className="text-base font-black text-emerald-400 tracking-wide">NFL 5-PICK'EM</h1>
-          <p className="text-xs text-slate-400">
-            Player: <span className="text-white font-bold">{user.name}</span>
-          </p>
+      <header className="sticky top-0 z-50 bg-slate-900/95 backdrop-blur border-b border-slate-800 px-4 py-3 shadow-md">
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-base font-black text-emerald-400 tracking-wide">NFL 5-PICK'EM</h1>
+            <p className="text-xs text-slate-400">
+              Player: <span className="text-white font-bold">{user.name}</span>
+            </p>
+          </div>
+          <div className="flex flex-col items-end">
+            <span
+              className={`text-[10px] px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wider ${
+                isLocked
+                  ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
+                  : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+              }`}
+            >
+              {isLocked ? 'Picks Locked' : 'Picks Open'}
+            </span>
+            {/* Live Countdown Display */}
+            <span className="text-[11px] font-mono font-medium text-slate-400 mt-1">
+              {isLocked ? '🔒 Closed' : `⏳ Locks in: ${timeLeft}`}
+            </span>
+          </div>
         </div>
-        <span
-          className={`text-[10px] px-2.5 py-1 rounded-full font-bold uppercase tracking-wider ${
-            isLocked
-              ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
-              : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-          }`}
-        >
-          {isLocked ? 'Picks Locked' : 'Picks Open'}
-        </span>
       </header>
 
       {/* Navigation Tabs */}
@@ -416,14 +464,13 @@ export default function Home() {
               const isAwayWinner = game.isCompleted && game.winnerId === game.awayTeam.id;
               const isHomeWinner = game.isCompleted && game.winnerId === game.homeTeam.id;
 
-              const awayColor = game.awayTeam.color || '#059669';
-              const homeColor = game.homeTeam.color || '#059669';
-
               return (
                 <div key={game.gameId} className="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-sm">
                   {/* Card Header: Matchup & Date or FINAL */}
                   <div className="flex justify-between items-center text-[11px] text-slate-400 mb-3 border-b border-slate-800/80 pb-2 font-medium">
-                    <span className="text-emerald-400 font-semibold">Matchup {idx + 1} • {game.dayOfWeek}</span>
+                    <span className="text-emerald-400 font-semibold">
+                      Matchup {idx + 1} • {game.dayOfWeek}
+                    </span>
                     <div className="flex items-center space-x-2">
                       {game.isCompleted ? (
                         <span className="bg-slate-800 text-amber-400 font-bold px-2 py-0.5 rounded text-[10px] tracking-wider border border-amber-400/20">
@@ -431,7 +478,12 @@ export default function Home() {
                         </span>
                       ) : (
                         <span>
-                          {new Date(game.date).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: '2-digit' })} • {new Date(game.date).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                          {new Date(game.date).toLocaleDateString('en-US', {
+                            month: '2-digit',
+                            day: '2-digit',
+                            year: '2-digit'
+                          })}{' '}
+                          • {new Date(game.date).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
                         </span>
                       )}
                     </div>
@@ -439,34 +491,35 @@ export default function Home() {
 
                   {/* 2-Column Grid: Away Team (Left) @ Home Team (Right) */}
                   <div className="grid grid-cols-2 gap-3">
-                    {/* AWAY TEAM (LEFT) */}
+                    {/* AWAY TEAM (LEFT SIDE) */}
                     <button
                       type="button"
                       onClick={() => selectWinner(game.gameId, game.awayTeam.id)}
                       disabled={!canEditThisSlate}
-                      style={{
-                        backgroundColor: isAwaySelected ? awayColor : undefined,
-                        borderColor: isAwaySelected ? '#ffffff' : undefined,
-                        boxShadow: isAwaySelected ? `0 0 16px ${awayColor}88` : undefined
-                      }}
                       className={`relative flex flex-col items-center justify-center p-3 rounded-xl border transition-all ${
                         canEditThisSlate ? 'active:scale-95 cursor-pointer' : 'cursor-default'
                       } ${
                         isAwaySelected
-                          ? 'text-white'
-                          : 'bg-slate-950 border-slate-800 text-slate-300 hover:border-slate-700'
+                          ? 'bg-emerald-600 border-emerald-400 text-white shadow-md'
+                          : 'bg-slate-950 border-slate-800 text-slate-300'
                       }`}
                     >
                       <div className="flex items-center justify-center gap-2 mb-1.5 min-h-[36px]">
                         {game.awayTeam.logo && (
-                          <img src={game.awayTeam.logo} alt={game.awayTeam.name} className="w-9 h-9 object-contain drop-shadow" />
+                          <img
+                            src={game.awayTeam.logo}
+                            alt={game.awayTeam.name}
+                            className="w-9 h-9 object-contain"
+                          />
                         )}
                         {game.isCompleted && game.awayScore !== null && game.awayScore !== undefined && (
-                          <span className={`text-base font-black px-2 py-0.5 rounded-lg border ${
-                            isAwayWinner
-                              ? 'bg-emerald-400 text-slate-950 border-emerald-300 shadow-sm'
-                              : 'bg-slate-900 text-slate-300 border-slate-700'
-                          }`}>
+                          <span
+                            className={`text-base font-black px-2 py-0.5 rounded-lg border ${
+                              isAwayWinner
+                                ? 'bg-emerald-400 text-slate-950 border-emerald-300 shadow-sm'
+                                : 'bg-slate-900 text-slate-300 border-slate-700'
+                            }`}
+                          >
                             {game.awayScore}
                           </span>
                         )}
@@ -475,39 +528,40 @@ export default function Home() {
                         {game.awayTeam.abbrev}
                         {isAwayWinner && <span className="text-emerald-300 text-xs font-black">✓</span>}
                       </span>
-                      <span className={`text-[10px] truncate w-full text-center ${isAwaySelected ? 'text-slate-100 font-semibold' : 'text-slate-400'}`}>
+                      <span className="text-[10px] text-slate-400 truncate w-full text-center">
                         {game.awayTeam.name} (Away)
                       </span>
                     </button>
 
-                    {/* HOME TEAM (RIGHT) */}
+                    {/* HOME TEAM (RIGHT SIDE) */}
                     <button
                       type="button"
                       onClick={() => selectWinner(game.gameId, game.homeTeam.id)}
                       disabled={!canEditThisSlate}
-                      style={{
-                        backgroundColor: isHomeSelected ? homeColor : undefined,
-                        borderColor: isHomeSelected ? '#ffffff' : undefined,
-                        boxShadow: isHomeSelected ? `0 0 16px ${homeColor}88` : undefined
-                      }}
                       className={`relative flex flex-col items-center justify-center p-3 rounded-xl border transition-all ${
                         canEditThisSlate ? 'active:scale-95 cursor-pointer' : 'cursor-default'
                       } ${
                         isHomeSelected
-                          ? 'text-white'
-                          : 'bg-slate-950 border-slate-800 text-slate-300 hover:border-slate-700'
+                          ? 'bg-emerald-600 border-emerald-400 text-white shadow-md'
+                          : 'bg-slate-950 border-slate-800 text-slate-300'
                       }`}
                     >
                       <div className="flex items-center justify-center gap-2 mb-1.5 min-h-[36px]">
                         {game.homeTeam.logo && (
-                          <img src={game.homeTeam.logo} alt={game.homeTeam.name} className="w-9 h-9 object-contain drop-shadow" />
+                          <img
+                            src={game.homeTeam.logo}
+                            alt={game.homeTeam.name}
+                            className="w-9 h-9 object-contain"
+                          />
                         )}
                         {game.isCompleted && game.homeScore !== null && game.homeScore !== undefined && (
-                          <span className={`text-base font-black px-2 py-0.5 rounded-lg border ${
-                            isHomeWinner
-                              ? 'bg-emerald-400 text-slate-950 border-emerald-300 shadow-sm'
-                              : 'bg-slate-900 text-slate-300 border-slate-700'
-                          }`}>
+                          <span
+                            className={`text-base font-black px-2 py-0.5 rounded-lg border ${
+                              isHomeWinner
+                                ? 'bg-emerald-400 text-slate-950 border-emerald-300 shadow-sm'
+                                : 'bg-slate-900 text-slate-300 border-slate-700'
+                            }`}
+                          >
                             {game.homeScore}
                           </span>
                         )}
@@ -516,7 +570,7 @@ export default function Home() {
                         {game.homeTeam.abbrev}
                         {isHomeWinner && <span className="text-emerald-300 text-xs font-black">✓</span>}
                       </span>
-                      <span className={`text-[10px] truncate w-full text-center ${isHomeSelected ? 'text-slate-100 font-semibold' : 'text-slate-400'}`}>
+                      <span className="text-[10px] text-slate-400 truncate w-full text-center">
                         {game.homeTeam.name} (Home)
                       </span>
                     </button>
