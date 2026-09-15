@@ -14,26 +14,27 @@ export default function Home() {
   // Picks and Views
   const [allPicks, setAllPicks] = useState({});
   const [viewingUserId, setViewingUserId] = useState(null);
+  const [hasSubmitted, setHasSubmitted] = useState(false);
 
   const [slate, setSlate] = useState([]);
   const [standings, setStandings] = useState([]);
   const [historyData, setHistoryData] = useState([]);
   const [activeTab, setActiveTab] = useState('slate');
-  const [week, setWeek] = useState(1);
-  const [isLocked, setIsLocked] = useState(false);
+  const [week, setWeek] = useState(2);
+  const [isScheduleLocked, setIsScheduleLocked] = useState(false);
   const [timeLeft, setTimeLeft] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-// 1. Dynamic Earliest-Kickoff Countdown & Lockout
+  // 1. Dynamic Earliest-Kickoff Countdown & Schedule Lockout
   useEffect(() => {
     if (!slate || slate.length === 0) return;
 
     const updateCountdown = () => {
       const now = new Date().getTime();
       const kickoffTimestamps = slate
-        .map(g => new Date(g.date).getTime())
-        .filter(t => !isNaN(t));
+        .map((g) => new Date(g.date).getTime())
+        .filter((t) => !isNaN(t));
 
       if (kickoffTimestamps.length === 0) return;
 
@@ -41,10 +42,10 @@ export default function Home() {
       const diff = earliestKickoff - now;
 
       if (diff <= 0) {
-        setIsLocked(true);
+        setIsScheduleLocked(true);
         setTimeLeft('Picks Closed');
       } else {
-        setIsLocked(false);
+        setIsScheduleLocked(false);
         const totalSeconds = Math.floor(diff / 1000);
         const days = Math.floor(totalSeconds / 86400);
         const hours = Math.floor((totalSeconds % 86400) / 3600);
@@ -87,7 +88,7 @@ export default function Home() {
       const data = await res.json();
       setSlate(data.slate || []);
       setStandings(data.standings || []);
-      setWeek(data.week || 1);
+      setWeek(data.week || 2);
 
       const formattedAllPicks = {};
       if (data.picks) {
@@ -102,6 +103,12 @@ export default function Home() {
       }
       setAllPicks(formattedAllPicks);
       setViewingUserId(currentUserId);
+
+      // Check if current user already has 5 locked picks
+      const mySavedPicks = formattedAllPicks[currentUserId] || {};
+      if (Object.keys(mySavedPicks).length === 5) {
+        setHasSubmitted(true);
+      }
     } catch (err) {
       console.error('Failed to load slate:', err);
     }
@@ -177,7 +184,7 @@ export default function Home() {
   };
 
   const selectWinner = (gameId, teamId) => {
-    if (isLocked || viewingUserId !== user?.id) return;
+    if (isScheduleLocked || hasSubmitted || viewingUserId !== user?.id) return;
 
     setAllPicks((prev) => ({
       ...prev,
@@ -202,12 +209,17 @@ export default function Home() {
     });
     setLoading(false);
     if (res.ok) {
-      alert('Picks locked in successfully! Good luck!');
+      setHasSubmitted(true);
+    } else {
+      alert('Failed to lock in picks. Please try again.');
     }
   };
 
   const viewingPlayerName = standings.find((s) => s.id === viewingUserId)?.name || user?.name;
   const currentDisplayedPicks = allPicks[viewingUserId] || {};
+
+  // Determine user lock state vs schedule lock state
+  const isUserLocked = isScheduleLocked || hasSubmitted;
 
   // SCREEN A: FIRST-TIME PIN CREATION
   if (isChangingPin) {
@@ -329,17 +341,17 @@ export default function Home() {
           <div className="flex flex-col items-end">
             <span
               className={`text-[10px] px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wider ${
-                isLocked
+                isUserLocked
                   ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
                   : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
               }`}
             >
-              {isLocked ? 'Picks Locked' : 'Picks Open'}
+              {isUserLocked ? 'Picks Locked' : 'Picks Open'}
             </span>
             <span className="text-[11px] font-mono font-medium text-slate-300 mt-1">
-              {isLocked ? '🔒 Closed' : `⏳ ${timeLeft}`}
+              {isScheduleLocked ? '🔒 Closed' : `⏳ ${timeLeft}`}
             </span>
-            {!isLocked && slate && slate.length > 0 && (
+            {!isScheduleLocked && slate && slate.length > 0 && (
               <span className="text-[9px] text-slate-400">
                 {(() => {
                   const sorted = [...slate].sort((a, b) => new Date(a.date) - new Date(b.date));
@@ -457,7 +469,9 @@ export default function Home() {
             slate.map((game, idx) => {
               const isAwaySelected = currentDisplayedPicks[game.gameId] === game.awayTeam.id;
               const isHomeSelected = currentDisplayedPicks[game.gameId] === game.homeTeam.id;
-              const canEditThisSlate = !isLocked && viewingUserId === user.id && !game.isCompleted;
+              
+              // Edits disabled if user locked picks, or kickoff arrived, or viewing someone else
+              const canEditThisSlate = !isUserLocked && viewingUserId === user.id && !game.isCompleted;
 
               const isAwayWinner = game.isCompleted && game.winnerId === game.awayTeam.id;
               const isHomeWinner = game.isCompleted && game.winnerId === game.homeTeam.id;
@@ -578,15 +592,35 @@ export default function Home() {
             })
           )}
 
+          {/* Submission / Status Action Controls */}
           {viewingUserId === user.id && (
-            <div className="pt-2">
-              <button
-                onClick={submitPicks}
-                disabled={isLocked || Object.keys(currentDisplayedPicks).length < 5 || loading}
-                className="w-full py-4 rounded-xl font-black text-sm bg-emerald-500 hover:bg-emerald-400 disabled:bg-slate-800 disabled:text-slate-600 text-slate-950 shadow-lg transition active:scale-98"
-              >
-                {loading ? 'SAVING PICKS...' : isLocked ? 'PICKS CLOSED FOR THIS WEEK' : 'LOCK IN PICKS'}
-              </button>
+            <div className="pt-2 space-y-2">
+              {hasSubmitted && !isScheduleLocked ? (
+                <div className="space-y-2">
+                  <div className="bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 p-3 rounded-xl text-center text-xs font-bold">
+                    ✓ Your picks are locked in! Good luck this week!
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setHasSubmitted(false)}
+                    className="w-full py-2.5 rounded-xl font-bold text-xs bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 transition active:scale-98"
+                  >
+                    Change / Edit My Picks
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={submitPicks}
+                  disabled={isUserLocked || Object.keys(currentDisplayedPicks).length < 5 || loading}
+                  className="w-full py-4 rounded-xl font-black text-sm bg-emerald-500 hover:bg-emerald-400 disabled:bg-slate-800 disabled:text-slate-600 text-slate-950 shadow-lg transition active:scale-98"
+                >
+                  {loading
+                    ? 'SAVING PICKS...'
+                    : isScheduleLocked
+                    ? 'PICKS CLOSED FOR THIS WEEK'
+                    : 'LOCK IN PICKS'}
+                </button>
+              )}
             </div>
           )}
         </main>
