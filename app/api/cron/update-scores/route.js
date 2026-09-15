@@ -3,13 +3,14 @@ import { fetchCurrentNFLWeek, selectWeeklyGames, calculateUserScores } from '@/l
 import { readData, writeData } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 export async function GET() {
   try {
     const now = new Date();
     const dayOfWeek = now.getUTCDay(); // 2 = Tuesday
     
-    // 1. Read existing state
+    // 1. Read stored state
     const currentSlate = await readData('current_slate.json');
     const picks = (await readData('picks.json')) || {};
     const standings = (await readData('standings.json')) || [];
@@ -65,7 +66,7 @@ export async function GET() {
       await writeData('history.json', history);
     }
 
-    // 3. Roll over to the next week (Week 2)
+    // 3. Roll over to next week
     const allGamesCompleted = currentSlate?.games?.every(g => g.isCompleted) ?? false;
     let nextWeekNum = currentWeekNum;
 
@@ -73,11 +74,11 @@ export async function GET() {
       nextWeekNum = currentWeekNum + 1;
     }
 
-    // Explicitly ask ESPN for the next week's schedule
+    // Explicitly query ESPN for nextWeekNum using the 2026 calendar year parameter
     let targetEvents = [];
     try {
       const targetRes = await fetch(
-        `https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?week=${nextWeekNum}&seasontype=2`,
+        `https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?dates=2026&seasontype=2&week=${nextWeekNum}`,
         { cache: 'no-store' }
       );
       if (targetRes.ok) {
@@ -85,9 +86,10 @@ export async function GET() {
         targetEvents = data.events || [];
       }
     } catch (e) {
-      console.error('Failed to fetch specific week:', e);
+      console.error('Failed to fetch specific week schedule:', e);
     }
 
+    // Fallback if target fetch fails
     if (targetEvents.length === 0) {
       targetEvents = espnData.events || [];
     }
@@ -102,7 +104,7 @@ export async function GET() {
 
       await writeData('current_slate.json', newSlate);
 
-      // Reset picks for Ryan, Angi, and Mary
+      // Reset picks for the new week
       await writeData('picks.json', {
         user_1: [],
         user_2: [],
@@ -114,8 +116,8 @@ export async function GET() {
       success: true,
       dayOfWeekUTC: dayOfWeek,
       oldWeek: currentWeekNum,
-      newWeekSet: nextWeekNum,
-      gamesSelected: chosenGames.length
+      rolledOverToWeek: nextWeekNum,
+      matchupsLoaded: chosenGames.length
     });
   } catch (err) {
     console.error('Cron failure:', err);
