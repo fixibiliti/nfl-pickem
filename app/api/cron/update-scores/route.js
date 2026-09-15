@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { fetchCurrentNFLWeek, selectWeeklyGames, calculateUserScores } from '@/lib/nfl';
 import { readData, writeData } from '@/lib/db';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET() {
   try {
     const now = new Date();
@@ -16,7 +18,7 @@ export async function GET() {
     const currentWeekNum = currentSlate?.week || 1;
     let espnData = await fetchCurrentNFLWeek();
 
-    // 2. Finalize & archive current week's scores if not already archived
+    // 2. Finalize & archive current week's scores
     if (currentSlate && currentSlate.games && currentSlate.games.length > 0) {
       const updatedGames = currentSlate.games.map(game => {
         const liveEvent = (espnData.events || []).find(e => e.id === game.gameId);
@@ -63,8 +65,7 @@ export async function GET() {
       await writeData('history.json', history);
     }
 
-    // 3. Roll over to the next week
-    // Force target week to advance past the current completed slate
+    // 3. Roll over to the next week (Week 2)
     const allGamesCompleted = currentSlate?.games?.every(g => g.isCompleted) ?? false;
     let nextWeekNum = currentWeekNum;
 
@@ -72,7 +73,7 @@ export async function GET() {
       nextWeekNum = currentWeekNum + 1;
     }
 
-    // Fetch games for nextWeekNum from ESPN
+    // Explicitly ask ESPN for the next week's schedule
     let targetEvents = [];
     try {
       const targetRes = await fetch(
@@ -87,7 +88,6 @@ export async function GET() {
       console.error('Failed to fetch specific week:', e);
     }
 
-    // Fallback if the query returned no events
     if (targetEvents.length === 0) {
       targetEvents = espnData.events || [];
     }
@@ -102,7 +102,7 @@ export async function GET() {
 
       await writeData('current_slate.json', newSlate);
 
-      // Reset active picks for Ryan, Angi, and Mary
+      // Reset picks for Ryan, Angi, and Mary
       await writeData('picks.json', {
         user_1: [],
         user_2: [],
