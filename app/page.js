@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
-  // Test
+
 export default function Home() {
   const [user, setUser] = useState(null);
   const [name, setName] = useState('');
@@ -26,7 +26,7 @@ export default function Home() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // 1. Dynamic Earliest-Kickoff Countdown & Schedule Lockout
+  // 1. Dynamic Earliest-Kickoff Countdown & Global Schedule Lockout
   useEffect(() => {
     if (!slate || slate.length === 0) return;
 
@@ -104,7 +104,7 @@ export default function Home() {
       setAllPicks(formattedAllPicks);
       setViewingUserId(currentUserId);
 
-      // Check if current user already has 5 locked picks
+      // Check if logged-in user already locked in 5 picks
       const mySavedPicks = formattedAllPicks[currentUserId] || {};
       if (Object.keys(mySavedPicks).length === 5) {
         setHasSubmitted(true);
@@ -218,9 +218,6 @@ export default function Home() {
   const viewingPlayerName = standings.find((s) => s.id === viewingUserId)?.name || user?.name;
   const currentDisplayedPicks = allPicks[viewingUserId] || {};
 
-  // Determine user lock state vs schedule lock state
-  const isUserLocked = isScheduleLocked || hasSubmitted;
-
   // SCREEN A: FIRST-TIME PIN CREATION
   if (isChangingPin) {
     return (
@@ -328,7 +325,7 @@ export default function Home() {
   // SCREEN C: MAIN APPLICATION DASHBOARD
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 pb-20 font-sans max-w-lg mx-auto">
-      {/* Top Header */}
+      {/* Top Header - System Slate Status */}
       <header className="sticky top-0 z-50 bg-slate-900/95 backdrop-blur border-b border-slate-800 px-4 py-3 shadow-md">
         <div className="flex justify-between items-center">
           <div>
@@ -341,12 +338,12 @@ export default function Home() {
           <div className="flex flex-col items-end">
             <span
               className={`text-[10px] px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wider ${
-                isUserLocked
+                isScheduleLocked
                   ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
                   : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
               }`}
             >
-              {isUserLocked ? 'Picks Locked' : 'Picks Open'}
+              {isScheduleLocked ? 'Picks Locked' : 'Picks Open'}
             </span>
             <span className="text-[11px] font-mono font-medium text-slate-300 mt-1">
               {isScheduleLocked ? '🔒 Closed' : `⏳ ${timeLeft}`}
@@ -392,7 +389,7 @@ export default function Home() {
         </button>
       </div>
 
-      {/* Leaderboard */}
+      {/* Leaderboard with Individual Player Lock Badges */}
       <section className="p-4 mx-3 my-3 bg-slate-900 border border-slate-800 rounded-2xl shadow-sm">
         <div className="flex justify-between items-center mb-2.5">
           <h2 className="text-[11px] uppercase tracking-wider font-bold text-slate-400">Season Leaderboard</h2>
@@ -401,6 +398,9 @@ export default function Home() {
         <div className="grid grid-cols-3 gap-2">
           {standings.map((player) => {
             const isViewingThisPlayer = player.id === viewingUserId;
+            const playerPicksCount = allPicks[player.id] ? Object.keys(allPicks[player.id]).length : 0;
+            const isPlayerSubmitted = playerPicksCount === 5;
+
             return (
               <button
                 type="button"
@@ -409,25 +409,37 @@ export default function Home() {
                   setViewingUserId(player.id);
                   setActiveTab('slate');
                 }}
-                className={`p-2.5 rounded-xl border text-center transition-all cursor-pointer active:scale-95 ${
+                className={`p-2.5 rounded-xl border text-center transition-all cursor-pointer active:scale-95 flex flex-col items-center justify-between min-h-[105px] ${
                   isViewingThisPlayer
                     ? 'bg-emerald-500/15 border-emerald-400 ring-1 ring-emerald-400 shadow-md'
                     : 'bg-slate-950 border-slate-800 hover:border-slate-700 text-slate-300'
                 }`}
               >
-                <span
-                  className={`text-[11px] font-bold block truncate ${
-                    isViewingThisPlayer ? 'text-emerald-400' : 'text-slate-400'
-                  }`}
-                >
-                  {player.name} {player.id === user.id ? '★' : ''}
-                </span>
-                <span className="text-xl font-black text-white">
-                  {player.totalScore || 0} <span className="text-[10px] font-normal text-slate-500">pts</span>
-                </span>
-                <span className="text-[9px] block mt-0.5 text-slate-500 uppercase tracking-tight">
-                  {isViewingThisPlayer ? 'Viewing' : 'Tap to View'}
-                </span>
+                <div className="w-full">
+                  <span
+                    className={`text-[11px] font-bold block truncate ${
+                      isViewingThisPlayer ? 'text-emerald-400' : 'text-slate-400'
+                    }`}
+                  >
+                    {player.name} {player.id === user.id ? '★' : ''}
+                  </span>
+                  <span className="text-lg font-black text-white block mt-0.5">
+                    {player.totalScore || 0} <span className="text-[9px] font-normal text-slate-500">pts</span>
+                  </span>
+                </div>
+
+                {/* Option A: Individual Lock Badge */}
+                <div className="mt-1.5 w-full flex justify-center">
+                  {isPlayerSubmitted ? (
+                    <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-0.5 tracking-tight">
+                      <span>🔒</span> Locked In
+                    </span>
+                  ) : (
+                    <span className="text-[9px] font-medium px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700/60 flex items-center gap-0.5 tracking-tight">
+                      <span>⏳</span> Picking...
+                    </span>
+                  )}
+                </div>
               </button>
             );
           })}
@@ -469,9 +481,9 @@ export default function Home() {
             slate.map((game, idx) => {
               const isAwaySelected = currentDisplayedPicks[game.gameId] === game.awayTeam.id;
               const isHomeSelected = currentDisplayedPicks[game.gameId] === game.homeTeam.id;
-              
-              // Edits disabled if user locked picks, or kickoff arrived, or viewing someone else
-              const canEditThisSlate = !isUserLocked && viewingUserId === user.id && !game.isCompleted;
+
+              // Only editable if viewing own picks, schedule is still open, and user hasn't submitted yet
+              const canEditThisSlate = !isScheduleLocked && !hasSubmitted && viewingUserId === user.id && !game.isCompleted;
 
               const isAwayWinner = game.isCompleted && game.winnerId === game.awayTeam.id;
               const isHomeWinner = game.isCompleted && game.winnerId === game.homeTeam.id;
@@ -592,7 +604,7 @@ export default function Home() {
             })
           )}
 
-          {/* Submission / Status Action Controls */}
+          {/* Submission / Status Controls */}
           {viewingUserId === user.id && (
             <div className="pt-2 space-y-2">
               {hasSubmitted && !isScheduleLocked ? (
@@ -611,7 +623,7 @@ export default function Home() {
               ) : (
                 <button
                   onClick={submitPicks}
-                  disabled={isUserLocked || Object.keys(currentDisplayedPicks).length < 5 || loading}
+                  disabled={isScheduleLocked || Object.keys(currentDisplayedPicks).length < 5 || loading}
                   className="w-full py-4 rounded-xl font-black text-sm bg-emerald-500 hover:bg-emerald-400 disabled:bg-slate-800 disabled:text-slate-600 text-slate-950 shadow-lg transition active:scale-98"
                 >
                   {loading
