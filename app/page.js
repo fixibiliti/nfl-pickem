@@ -773,9 +773,9 @@ export default function Home() {
                     {/* Header Row: Day, Time, Network, Pick'em Tag */}
                     <div className="flex justify-between items-center text-[10px] font-medium text-slate-400 border-b border-slate-800/60 pb-1.5 mb-2">
                       <span className="text-slate-300 font-semibold">
-                        {game.dayOfWeek} • {new Date(game.date).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                        {game.dayOfWeek} {new Date(game.date).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit' })} • {new Date(game.date).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
                         {game.broadcast && (
-                          <span className="ml-1.5 px-1.5 py-0.2 rounded bg-slate-800 text-slate-400 font-mono text-[9px]">
+                          <span className="ml-1.5 px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 font-mono text-[9px]">
                             {game.broadcast}
                           </span>
                         )}
