@@ -325,6 +325,7 @@ export default function Home() {
               Player: <span className="text-white font-bold">{user.name}</span>
             </p>
           </div>
+
           <div className="flex flex-col items-end">
             <span
               className={`text-[10px] px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wider ${
@@ -338,16 +339,18 @@ export default function Home() {
             <span className="text-[11px] font-mono font-medium text-slate-300 mt-1">
               {isLocked ? '🔒 Closed' : `⏳ ${timeLeft}`}
             </span>
-            {!isLocked && slate.length > 0 && (
+            {!isLocked && slate && slate.length > 0 && (
               <span className="text-[9px] text-slate-400">
                 {(() => {
                   const sorted = [...slate].sort((a, b) => new Date(a.date) - new Date(b.date));
                   const first = sorted[0];
-                  return `First Kickoff: ${first.dayOfWeek.slice(0, 3)} @ ${new Date(first.date).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`;
+                  if (!first?.date) return '';
+                  return `Locks: ${first.dayOfWeek.slice(0, 3)} @ ${new Date(first.date).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`;
                 })()}
               </span>
             )}
           </div>
+        </div>
       </header>
 
       {/* Navigation Tabs */}
