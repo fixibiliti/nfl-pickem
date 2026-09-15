@@ -10,7 +10,7 @@ export async function GET() {
     const now = new Date();
     const dayOfWeek = now.getUTCDay(); // 2 = Tuesday
     
-    // 1. Read stored state
+    // 1. Read existing state from Upstash Redis
     const currentSlate = await readData('current_slate.json');
     const picks = (await readData('picks.json')) || {};
     const standings = (await readData('standings.json')) || [];
@@ -19,7 +19,7 @@ export async function GET() {
     const currentWeekNum = currentSlate?.week || 1;
     let espnData = await fetchCurrentNFLWeek();
 
-    // 2. Finalize & archive current week's scores
+    // 2. Daily score updates & finalization for the current slate
     if (currentSlate && currentSlate.games && currentSlate.games.length > 0) {
       const updatedGames = currentSlate.games.map(game => {
         const liveEvent = (espnData.events || []).find(e => e.id === game.gameId);
@@ -66,58 +66,55 @@ export async function GET() {
       await writeData('history.json', history);
     }
 
-    // 3. Roll over to next week
+    // 3. Automated Tuesday Rollover (Next Week Advancement)
     const allGamesCompleted = currentSlate?.games?.every(g => g.isCompleted) ?? false;
     let nextWeekNum = currentWeekNum;
 
     if (dayOfWeek === 2 || allGamesCompleted) {
       nextWeekNum = currentWeekNum + 1;
-    }
 
-    // Explicitly query ESPN for nextWeekNum using the 2026 calendar year parameter
-    let targetEvents = [];
-    try {
-      const targetRes = await fetch(
-        `https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?dates=2026&seasontype=2&week=${nextWeekNum}`,
-        { cache: 'no-store' }
-      );
-      if (targetRes.ok) {
-        const data = await targetRes.json();
-        targetEvents = data.events || [];
+      let targetEvents = [];
+      try {
+        const targetRes = await fetch(
+          `https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?dates=2026&seasontype=2&week=${nextWeekNum}`,
+          { cache: 'no-store' }
+        );
+        if (targetRes.ok) {
+          const data = await targetRes.json();
+          targetEvents = data.events || [];
+        }
+      } catch (e) {
+        console.error('Failed to fetch specific week schedule:', e);
       }
-    } catch (e) {
-      console.error('Failed to fetch specific week schedule:', e);
-    }
 
-    // Fallback if target fetch fails
-    if (targetEvents.length === 0) {
-      targetEvents = espnData.events || [];
-    }
+      if (targetEvents.length === 0) {
+        targetEvents = espnData.events || [];
+      }
 
-    const chosenGames = selectWeeklyGames(targetEvents);
+      const chosenGames = selectWeeklyGames(targetEvents);
 
-    if (chosenGames.length > 0) {
-      const newSlate = {
-        week: nextWeekNum,
-        games: chosenGames
-      };
+      if (chosenGames.length > 0) {
+        const newSlate = {
+          week: nextWeekNum,
+          games: chosenGames
+        };
 
-      await writeData('current_slate.json', newSlate);
+        await writeData('current_slate.json', newSlate);
 
-      // Reset picks for the new week
-      await writeData('picks.json', {
-        user_1: [],
-        user_2: [],
-        user_3: []
-      });
+        // Reset picks for Ryan, Angi, and Mary
+        await writeData('picks.json', {
+          user_1: [],
+          user_2: [],
+          user_3: []
+        });
+      }
     }
 
     return NextResponse.json({
       success: true,
       dayOfWeekUTC: dayOfWeek,
-      oldWeek: currentWeekNum,
-      rolledOverToWeek: nextWeekNum,
-      matchupsLoaded: chosenGames.length
+      currentWeek: currentWeekNum,
+      advancedToWeek: nextWeekNum
     });
   } catch (err) {
     console.error('Cron failure:', err);
