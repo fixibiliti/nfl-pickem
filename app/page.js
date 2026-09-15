@@ -19,7 +19,10 @@ export default function Home() {
   const [slate, setSlate] = useState([]);
   const [standings, setStandings] = useState([]);
   const [historyData, setHistoryData] = useState([]);
-  const [activeTab, setActiveTab] = useState('slate');
+  const [fullSchedule, setFullSchedule] = useState([]);
+  const [loadingSchedule, setLoadingSchedule] = useState(false);
+
+  const [activeTab, setActiveTab] = useState('slate'); // 'slate' | 'history' | 'schedule'
   const [week, setWeek] = useState(2);
   const [isScheduleLocked, setIsScheduleLocked] = useState(false);
   const [timeLeft, setTimeLeft] = useState('');
@@ -104,7 +107,6 @@ export default function Home() {
       setAllPicks(formattedAllPicks);
       setViewingUserId(currentUserId);
 
-      // Check if logged-in user already locked in 5 picks
       const mySavedPicks = formattedAllPicks[currentUserId] || {};
       if (Object.keys(mySavedPicks).length === 5) {
         setHasSubmitted(true);
@@ -121,6 +123,20 @@ export default function Home() {
       setHistoryData(data.history || []);
     } catch (err) {
       console.error('Failed to load history:', err);
+    }
+  };
+
+  const loadFullSchedule = async (targetWeek) => {
+    if (fullSchedule.length > 0) return; // Cached in state
+    setLoadingSchedule(true);
+    try {
+      const res = await fetch(`/api/schedule?week=${targetWeek || week}`);
+      const data = await res.json();
+      setFullSchedule(data.schedule || []);
+    } catch (err) {
+      console.error('Failed to load full schedule:', err);
+    } finally {
+      setLoadingSchedule(false);
     }
   };
 
@@ -325,7 +341,7 @@ export default function Home() {
   // SCREEN C: MAIN APPLICATION DASHBOARD
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 pb-20 font-sans max-w-lg mx-auto">
-      {/* Top Header - System Slate Status */}
+      {/* Top Header */}
       <header className="sticky top-0 z-50 bg-slate-900/95 backdrop-blur border-b border-slate-800 px-4 py-3 shadow-md">
         <div className="flex justify-between items-center">
           <div>
@@ -362,8 +378,8 @@ export default function Home() {
         </div>
       </header>
 
-      {/* Navigation Tabs */}
-      <div className="flex bg-slate-900 border-b border-slate-800 px-3 pt-2">
+      {/* Navigation Tabs (3 Tabs Now) */}
+      <div className="flex bg-slate-900 border-b border-slate-800 px-2 pt-2">
         <button
           onClick={() => setActiveTab('slate')}
           className={`flex-1 py-2.5 text-xs font-bold transition border-b-2 text-center ${
@@ -385,7 +401,20 @@ export default function Home() {
               : 'border-transparent text-slate-400 hover:text-slate-200'
           }`}
         >
-          Season Recap 📜
+          Recap 📜
+        </button>
+        <button
+          onClick={() => {
+            setActiveTab('schedule');
+            loadFullSchedule(week);
+          }}
+          className={`flex-1 py-2.5 text-xs font-bold transition border-b-2 text-center ${
+            activeTab === 'schedule'
+              ? 'border-emerald-400 text-emerald-400'
+              : 'border-transparent text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          Schedule 🗓️
         </button>
       </div>
 
@@ -428,7 +457,6 @@ export default function Home() {
                   </span>
                 </div>
 
-                {/* Option A: Individual Lock Badge */}
                 <div className="mt-1.5 w-full flex justify-center">
                   {isPlayerSubmitted ? (
                     <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-0.5 tracking-tight">
@@ -482,7 +510,6 @@ export default function Home() {
               const isAwaySelected = currentDisplayedPicks[game.gameId] === game.awayTeam.id;
               const isHomeSelected = currentDisplayedPicks[game.gameId] === game.homeTeam.id;
 
-              // Only editable if viewing own picks, schedule is still open, and user hasn't submitted yet
               const canEditThisSlate = !isScheduleLocked && !hasSubmitted && viewingUserId === user.id && !game.isCompleted;
 
               const isAwayWinner = game.isCompleted && game.winnerId === game.awayTeam.id;
@@ -490,7 +517,6 @@ export default function Home() {
 
               return (
                 <div key={game.gameId} className="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-sm">
-                  {/* Card Header: Matchup & Date or FINAL */}
                   <div className="flex justify-between items-center text-[11px] text-slate-400 mb-3 border-b border-slate-800/80 pb-2 font-medium">
                     <span className="text-emerald-400 font-semibold">
                       Matchup {idx + 1} • {game.dayOfWeek}
@@ -513,9 +539,8 @@ export default function Home() {
                     </div>
                   </div>
 
-                  {/* 2-Column Grid: Away Team (Left) @ Home Team (Right) */}
                   <div className="grid grid-cols-2 gap-3">
-                    {/* AWAY TEAM (LEFT SIDE) */}
+                    {/* AWAY TEAM */}
                     <button
                       type="button"
                       onClick={() => selectWinner(game.gameId, game.awayTeam.id)}
@@ -557,7 +582,7 @@ export default function Home() {
                       </span>
                     </button>
 
-                    {/* HOME TEAM (RIGHT SIDE) */}
+                    {/* HOME TEAM */}
                     <button
                       type="button"
                       onClick={() => selectWinner(game.gameId, game.homeTeam.id)}
@@ -604,7 +629,6 @@ export default function Home() {
             })
           )}
 
-          {/* Submission / Status Controls */}
           {viewingUserId === user.id && (
             <div className="pt-2 space-y-2">
               {hasSubmitted && !isScheduleLocked ? (
@@ -707,6 +731,114 @@ export default function Home() {
                 })}
               </div>
             ))
+          )}
+        </main>
+      )}
+
+      {/* TAB 3: FULL NFL SCHEDULE (AT A GLANCE) */}
+      {activeTab === 'schedule' && (
+        <main className="px-3 space-y-3">
+          <div className="flex justify-between items-center px-1">
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+              Week {week} Full NFL Schedule
+            </span>
+            <span className="text-[11px] text-slate-500 font-medium">
+              {fullSchedule.length} Games
+            </span>
+          </div>
+
+          {loadingSchedule ? (
+            <div className="p-8 text-center bg-slate-900 border border-slate-800 rounded-2xl text-slate-400 text-sm animate-pulse">
+              Loading official NFL schedule...
+            </div>
+          ) : fullSchedule.length === 0 ? (
+            <div className="p-8 text-center bg-slate-900 border border-slate-800 rounded-2xl text-slate-400 text-sm">
+              Schedule not found for this week.
+            </div>
+          ) : (
+            <div className="space-y-2.5">
+              {fullSchedule.map((game) => {
+                // Check if this game is on our current 5-Pick'em slate!
+                const isPickemGame = slate.some((sg) => sg.gameId === game.gameId);
+
+                return (
+                  <div
+                    key={game.gameId}
+                    className={`rounded-xl p-3 border transition-all ${
+                      isPickemGame
+                        ? 'bg-slate-900/95 border-emerald-500/50 shadow-md ring-1 ring-emerald-500/30'
+                        : 'bg-slate-900/60 border-slate-800/80 hover:border-slate-700'
+                    }`}
+                  >
+                    {/* Header Row: Day, Time, Network, Pick'em Tag */}
+                    <div className="flex justify-between items-center text-[10px] font-medium text-slate-400 border-b border-slate-800/60 pb-1.5 mb-2">
+                      <span className="text-slate-300 font-semibold">
+                        {game.dayOfWeek} • {new Date(game.date).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                        {game.broadcast && (
+                          <span className="ml-1.5 px-1.5 py-0.2 rounded bg-slate-800 text-slate-400 font-mono text-[9px]">
+                            {game.broadcast}
+                          </span>
+                        )}
+                      </span>
+
+                      <div className="flex items-center gap-1.5">
+                        {isPickemGame && (
+                          <span className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 font-bold px-1.5 py-0.5 rounded text-[9px] tracking-wide">
+                            ⭐ 5-PICK MATCHUP
+                          </span>
+                        )}
+                        {game.isCompleted ? (
+                          <span className="bg-slate-800 text-amber-400 font-bold px-1.5 py-0.5 rounded text-[9px]">
+                            FINAL
+                          </span>
+                        ) : game.isInProgress ? (
+                          <span className="bg-rose-500/20 text-rose-400 font-bold px-1.5 py-0.5 rounded text-[9px] animate-pulse">
+                            🔴 LIVE
+                          </span>
+                        ) : null}
+                      </div>
+                    </div>
+
+                    {/* Scoreboard Strip: Away vs. Home */}
+                    <div className="grid grid-cols-2 gap-2 items-center text-xs">
+                      {/* Away Team */}
+                      <div className="flex items-center justify-between bg-slate-950/70 p-2 rounded-lg border border-slate-800/60">
+                        <div className="flex items-center gap-2 truncate">
+                          {game.awayTeam.logo && (
+                            <img
+                              src={game.awayTeam.logo}
+                              alt={game.awayTeam.name}
+                              className="w-5 h-5 object-contain"
+                            />
+                          )}
+                          <span className="font-bold text-slate-200">{game.awayTeam.abbrev}</span>
+                        </div>
+                        {game.awayScore !== null && (
+                          <span className="font-black text-white ml-2 text-sm">{game.awayScore}</span>
+                        )}
+                      </div>
+
+                      {/* Home Team */}
+                      <div className="flex items-center justify-between bg-slate-950/70 p-2 rounded-lg border border-slate-800/60">
+                        <div className="flex items-center gap-2 truncate">
+                          {game.homeTeam.logo && (
+                            <img
+                              src={game.homeTeam.logo}
+                              alt={game.homeTeam.name}
+                              className="w-5 h-5 object-contain"
+                            />
+                          )}
+                          <span className="font-bold text-slate-200">{game.homeTeam.abbrev}</span>
+                        </div>
+                        {game.homeScore !== null && (
+                          <span className="font-black text-white ml-2 text-sm">{game.homeScore}</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           )}
         </main>
       )}
