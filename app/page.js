@@ -99,7 +99,7 @@ try {
 
 const loadSlateAndScores = async (currentUserId) => {
 try {
-  const res = await fetch('/api/slate');
+  const res = await fetch(`/api/slate?userId=${currentUserId || ''}`);
   const data = await res.json();
 
   const userStandings = data.standings || [];
@@ -117,16 +117,18 @@ try {
   setWeek(data.week || 2);
 
   const formattedAllPicks = {};
-  if (data.picks) {
-    Object.entries(data.picks).forEach(([uid, userPickList]) => {
-      formattedAllPicks[uid] = {};
-      if (Array.isArray(userPickList)) {
-        userPickList.forEach((p) => {
-          formattedAllPicks[uid][p.gameId] = p.selectedTeamId;
-        });
-      }
-    });
-  }
+   if (data.picks) {
+     Object.entries(data.picks).forEach(([uid, userPickList]) => {
+       formattedAllPicks[uid] = {};
+       if (Array.isArray(userPickList)) {
+         userPickList.forEach((p) => {
+           if (p.gameId) {
+             formattedAllPicks[uid][p.gameId] = p.selectedTeamId;
+           }
+         });
+       }
+     });
+   }
   setAllPicks(formattedAllPicks);
   setViewingUserId(currentUserId);
 
@@ -671,17 +673,24 @@ try {
           </div>
 
           {viewingUserId !== user.id && (
-            <div className="bg-slate-900/80 border border-slate-800 p-2.5 rounded-xl text-center text-xs text-slate-400 flex items-center justify-between px-3">
+            <div className="bg-slate-900/80 border border-slate-800 p-2.5 rounded-xl text-xs text-slate-400 flex items-center justify-between px-3">
               <span>
-                Viewing <strong>{viewingPlayerName}</strong>'s slate (Read-Only)
+                Viewing <strong>{viewingPlayerName}</strong>'s picks
               </span>
-              <button
-                type="button"
-                onClick={() => setViewingUserId(user.id)}
-                className="text-emerald-400 font-bold hover:underline text-[11px]"
-              >
-                Back to My Picks
-              </button>
+              <div className="flex items-center gap-2">
+                {!isScheduleLocked && (
+                  <span className="text-amber-400 font-semibold text-[10px] bg-amber-400/10 border border-amber-400/20 px-2 py-0.5 rounded">
+                    🔒 Hidden Until Kickoff
+                  </span>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setViewingUserId(user.id)}
+                  className="text-emerald-400 font-bold hover:underline text-[11px]"
+                >
+                  Back to Mine
+                </button>
+              </div>
             </div>
           )}
 
