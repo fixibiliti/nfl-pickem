@@ -8,35 +8,44 @@ export async function GET(request) {
     const { searchParams } = new URL(request.url);
     const requestingUserId = searchParams.get('userId');
 
-    const slateData = (await readData('slate.json')) || {};
+    const rawSlateData = (await readData('slate.json')) || [];
     const standingsData = (await readData('standings.json')) || [];
     const rawPicks = (await readData('picks.json')) || {};
 
-    const slate = slateData.games || [];
+    // 1. Normalize Slate: Handle both raw array and object formats
+    let slate = [];
+    let weekNumber = 2;
+
+    if (Array.isArray(rawSlateData)) {
+      slate = rawSlateData;
+    } else if (rawSlateData && typeof rawSlateData === 'object') {
+      slate = rawSlateData.games || rawSlateData.slate || [];
+      weekNumber = rawSlateData.week || 2;
+    }
+
     const now = Date.now();
 
-    // 1. Calculate earliest kickoff to determine if slate is globally locked
+    // 2. Calculate earliest kickoff
     const kickoffTimestamps = slate
-      .map((g) => new Date(g.date).getTime())
+      .map((g) => (g && g.date ? new Date(g.date).getTime() : NaN))
       .filter((t) => !isNaN(t));
 
     const earliestKickoff = kickoffTimestamps.length > 0 ? Math.min(...kickoffTimestamps) : 0;
     const isLocked = earliestKickoff > 0 && now >= earliestKickoff;
 
-    // 2. Sanitize Picks: If open, hide all picks except the requester's own picks
+    // 3. Sanitize Picks: Hide opponent picks if slate is still open
     const sanitizedPicks = {};
 
     Object.entries(rawPicks).forEach(([uid, userPicks]) => {
       if (isLocked) {
-        // Locked: Everyone can see everything
+        // Locked: All picks visible
         sanitizedPicks[uid] = userPicks;
       } else {
-        // Open: Only allow the requesting user to see their own picks
+        // Open: Only return selections to the owner
         if (uid === requestingUserId) {
           sanitizedPicks[uid] = userPicks;
         } else {
-          // Send an empty array or a dummy marker so the frontend knows they submitted
-          // but cannot inspect the selected teams
+          // Provide placeholder objects preserving length for status badges
           sanitizedPicks[uid] = Array.isArray(userPicks) && userPicks.length === 5
             ? [{ hidden: true }, { hidden: true }, { hidden: true }, { hidden: true }, { hidden: true }]
             : [];
@@ -46,7 +55,7 @@ export async function GET(request) {
 
     return NextResponse.json({
       slate,
-      week: slateData.week || 2,
+      week: weekNumber,
       standings: standingsData,
       picks: sanitizedPicks,
       isLocked
