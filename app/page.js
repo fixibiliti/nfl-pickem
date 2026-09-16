@@ -193,6 +193,21 @@ export default function Home() {
       }
     }
   };
+      // Logout
+  const handleLogout = () => {
+    try {
+      localStorage.removeItem('nfl_pickem_user');
+    } catch (e) {
+      console.error('Logout error:', e);
+    }
+    setUser(null);
+    setName('');
+    setPin('');
+    setLeaguePasscode('');
+    setError('');
+    setHasSubmitted(false);
+    setActiveTab('slate');
+  };
 
   const handleSaveNewPin = async (e) => {
     e.preventDefault();
@@ -438,9 +453,19 @@ export default function Home() {
         <div className="flex justify-between items-center">
           <div>
             <h1 className="text-base font-black text-emerald-400 tracking-wide">NFL 5-PICK'EM</h1>
-            <p className="text-xs text-slate-400">
-              Player: <span className="text-white font-bold">{user.name}</span>
-            </p>
+            <div className="flex items-center gap-2 mt-0.5">
+              <span className="text-xs text-slate-400">
+                Player: <span className="text-white font-bold">{user.name}</span>
+              </span>
+              <span className="text-slate-600 text-xs">•</span>
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="text-[11px] font-semibold text-rose-400 hover:text-rose-300 hover:underline transition cursor-pointer"
+              >
+                Log Out
+              </button>
+            </div>
           </div>
 
           <div className="flex flex-col items-end">
