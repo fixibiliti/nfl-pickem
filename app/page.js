@@ -30,6 +30,8 @@ export default function Home() {
   const [adminUsers, setAdminUsers] = useState([]);
   const [adminLoading, setAdminLoading] = useState(false);
   const [adminMessage, setAdminMessage] = useState('');
+  const [adminPasscode, setAdminPasscode] = useState('');
+  const [newPasscode, setNewPasscode] = useState('');
 
   // Tabs: 'slate' | 'leaderboard' | 'history' | 'schedule' | 'admin'
   const [activeTab, setActiveTab] = useState('slate');
@@ -161,21 +163,28 @@ try {
     }
   };
 
-  const loadAdminUsers = async () => {
-    if (!user?.isAdmin) return;
-    setAdminLoading(true);
-    try {
-      const res = await fetch(`/api/admin/users?requesterId=${user.id}`);
-      const data = await res.json();
-      if (res.ok) {
-        setAdminUsers(data.users || []);
-      }
-    } catch (err) {
-      console.error('Failed to load admin users:', err);
-    } finally {
-      setAdminLoading(false);
+  const loadAdminData = async () => {
+  if (!user?.isAdmin) return;
+  setAdminLoading(true);
+  try {
+    const [usersRes, settingsRes] = await Promise.all([
+      fetch(`/api/admin/users?requesterId=${user.id}`),
+      fetch(`/api/admin/settings?requesterId=${user.id}`)
+    ]);
+    const usersData = await usersRes.json();
+    const settingsData = await settingsRes.json();
+
+    if (usersRes.ok) setAdminUsers(usersData.users || []);
+    if (settingsRes.ok && settingsData.leaguePasscode) {
+      setAdminPasscode(settingsData.leaguePasscode);
+      setNewPasscode(settingsData.leaguePasscode);
     }
-  };
+  } catch (err) {
+    console.error('Failed to load admin data:', err);
+  } finally {
+    setAdminLoading(false);
+  }
+};
 
   const handleAdminAction = async (action, targetUserId) => {
     setAdminMessage('');
@@ -204,6 +213,33 @@ try {
       }
     } catch (err) {
       console.error('Admin action request failed:', err);
+    } finally {
+      setAdminLoading(false);
+    }
+  };
+
+    const handleUpdatePasscode = async (e) => {
+      e.preventDefault();
+      setAdminMessage('');
+      setAdminLoading(true);
+      try {
+        const res = await fetch('/api/admin/settings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            requesterId: user.id,
+            passcode: newPasscode
+        })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setAdminPasscode(data.leaguePasscode);
+        setAdminMessage(data.message);
+      } else {
+        alert(data.error || 'Failed to update passcode.');
+      }
+    } catch (err) {
+    console.error('Error updating passcode:', err);
     } finally {
       setAdminLoading(false);
     }
@@ -609,7 +645,7 @@ try {
           <button
             onClick={() => {
               setActiveTab('admin');
-              loadAdminUsers();
+              loadAdminData();
             }}
             className={`flex-1 py-2.5 text-xs font-bold transition border-b-2 text-center ${
               activeTab === 'admin'
@@ -1087,6 +1123,32 @@ try {
               ✓ {adminMessage}
             </div>
           )}
+          
+          {/* League Passcode Management Card */}
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-sm">
+            <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider mb-1">
+              League Join Passcode
+            </h3>
+            <p className="text-[11px] text-slate-400 mb-3">
+              New players must enter this code when registering.
+            </p>
+            <form onSubmit={handleUpdatePasscode} className="flex gap-2">
+              <input
+                type="text"
+                value={newPasscode}
+                onChange={(e) => setNewPasscode(e.target.value.toUpperCase())}
+                placeholder="Enter Passcode"
+                className="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono text-sm uppercase tracking-wider focus:outline-none focus:border-amber-400"
+              />
+              <button
+                type="submit"
+                disabled={adminLoading || newPasscode === adminPasscode}
+                className="px-4 py-2 rounded-xl font-bold text-xs bg-amber-400 hover:bg-amber-300 disabled:bg-slate-800 disabled:text-slate-600 text-slate-950 transition active:scale-95"
+              >
+                Save
+              </button>
+            </form>
+          </div>
 
           <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-sm divide-y divide-slate-800/80">
             <div className="px-4 py-2.5 bg-slate-950/60 text-[10px] font-bold uppercase tracking-wider text-slate-400 flex justify-between">

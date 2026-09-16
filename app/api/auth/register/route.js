@@ -20,8 +20,9 @@ export async function POST(request) {
       return NextResponse.json({ error: 'PIN must be exactly 4 digits.' }, { status: 400 });
     }
 
-    // 2. Validate League Passcode against the Vercel Config Variable
-    const validPasscode = process.env.LEAGUE_PASSCODE || 'GRIDIRON2026';
+    // 2. Validate League Passcode against database settings or fallback env variable
+    const settings = (await readData('settings.json')) || {};
+    const validPasscode = settings.leaguePasscode || process.env.LEAGUE_PASSCODE || 'GRIDIRON2026';
     if (cleanPasscode.toUpperCase() !== validPasscode.toUpperCase()) {
       return NextResponse.json({ error: 'Invalid League Passcode. Ask the commissioner for the code!' }, { status: 401 });
     }
