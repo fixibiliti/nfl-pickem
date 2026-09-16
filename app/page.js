@@ -78,53 +78,64 @@ export default function Home() {
     return () => clearInterval(interval);
   }, [slate]);
 
-  // 2. Persistent Login Check
-  useEffect(() => {
-    try {
-      const savedUser = localStorage.getItem('nfl_pickem_user');
-      if (savedUser) {
-        const parsed = JSON.parse(savedUser);
-        if (parsed?.id && !parsed.mustChangePin) {
-          setUser(parsed);
-          loadSlateAndScores(parsed.id);
-          loadHistory();
-        }
-      }
-    } catch (e) {
-      console.error('Session restore failed:', e);
+  // 2. Persistent Login Check with Server Verification
+useEffect(() => {
+try {
+  const savedUser = localStorage.getItem('nfl_pickem_user');
+  if (savedUser) {
+    const parsed = JSON.parse(savedUser);
+    if (parsed?.id) {
+      setUser(parsed);
+      loadSlateAndScores(parsed.id);
+      loadHistory();
     }
-  }, []);
+  }
+} catch (e) {
+  console.error('Session restore failed:', e);
+}
+}, []);
 
-  const loadSlateAndScores = async (currentUserId) => {
-    try {
-      const res = await fetch('/api/slate');
-      const data = await res.json();
-      setSlate(data.slate || []);
-      setStandings(data.standings || []);
-      setWeek(data.week || 2);
+const loadSlateAndScores = async (currentUserId) => {
+try {
+  const res = await fetch('/api/slate');
+  const data = await res.json();
 
-      const formattedAllPicks = {};
-      if (data.picks) {
-        Object.entries(data.picks).forEach(([uid, userPickList]) => {
-          formattedAllPicks[uid] = {};
-          if (Array.isArray(userPickList)) {
-            userPickList.forEach((p) => {
-              formattedAllPicks[uid][p.gameId] = p.selectedTeamId;
-            });
-          }
+  const userStandings = data.standings || [];
+
+  // Check if user was deleted on the server
+  const userStillExists = userStandings.some((s) => s.id === currentUserId);
+  if (currentUserId && !userStillExists && currentUserId !== 'user_1') {
+    // User was deleted by admin -> force logout
+    handleLogout();
+    return;
+  }
+
+  setSlate(data.slate || []);
+  setStandings(userStandings);
+  setWeek(data.week || 2);
+
+  const formattedAllPicks = {};
+  if (data.picks) {
+    Object.entries(data.picks).forEach(([uid, userPickList]) => {
+      formattedAllPicks[uid] = {};
+      if (Array.isArray(userPickList)) {
+        userPickList.forEach((p) => {
+          formattedAllPicks[uid][p.gameId] = p.selectedTeamId;
         });
       }
-      setAllPicks(formattedAllPicks);
-      setViewingUserId(currentUserId);
+    });
+  }
+  setAllPicks(formattedAllPicks);
+  setViewingUserId(currentUserId);
 
-      const mySavedPicks = formattedAllPicks[currentUserId] || {};
-      if (Object.keys(mySavedPicks).length === 5) {
-        setHasSubmitted(true);
-      }
-    } catch (err) {
-      console.error('Failed to load slate:', err);
-    }
-  };
+  const mySavedPicks = formattedAllPicks[currentUserId] || {};
+  if (Object.keys(mySavedPicks).length === 5) {
+    setHasSubmitted(true);
+  }
+} catch (err) {
+  console.error('Failed to load slate:', err);
+}
+};
 
   const loadHistory = async () => {
     try {
