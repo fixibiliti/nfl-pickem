@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { readData } from '@/lib/db';
+import { readData, writeData } from '@/lib/db';
+import { fetchCurrentNFLWeek, generateWeeklySlate } from '@/lib/nfl';
 
 export const dynamic = 'force-dynamic';
 
@@ -8,19 +9,41 @@ export async function GET(request) {
     const { searchParams } = new URL(request.url);
     const requestingUserId = searchParams.get('userId');
 
-    const rawSlateData = (await readData('slate.json')) || [];
+    // 1. Read current_slate.json (with fallback to slate.json)
+    let rawSlateData = (await readData('current_slate.json')) || (await readData('slate.json'));
     const standingsData = (await readData('standings.json')) || [];
     const rawPicks = (await readData('picks.json')) || {};
 
-    // 1. Normalize Slate: Handle both raw array and object formats
     let slate = [];
     let weekNumber = 2;
 
-    if (Array.isArray(rawSlateData)) {
-      slate = rawSlateData;
-    } else if (rawSlateData && typeof rawSlateData === 'object') {
-      slate = rawSlateData.games || rawSlateData.slate || [];
-      weekNumber = rawSlateData.week || 2;
+    if (rawSlateData) {
+      if (Array.isArray(rawSlateData)) {
+        slate = rawSlateData;
+      } else if (typeof rawSlateData === 'object') {
+        slate = rawSlateData.games || rawSlateData.slate || [];
+        weekNumber = rawSlateData.week || 2;
+      }
+    }
+
+    // Auto-heal: If Redis has no slate yet, generate it on the fly
+    if (!slate || slate.length === 0) {
+      try {
+        const espnData = await fetchCurrentNFLWeek();
+        const newSlate = generateWeeklySlate(espnData);
+        weekNumber = espnData.week?.number || 2;
+
+        if (newSlate && newSlate.length > 0) {
+          slate = newSlate;
+          await writeData('current_slate.json', {
+            week: weekNumber,
+            createdAt: new Date().toISOString(),
+            games: newSlate
+          });
+        }
+      } catch (genErr) {
+        console.error('Failed to auto-generate slate:', genErr);
+      }
     }
 
     const now = Date.now();
@@ -38,17 +61,15 @@ export async function GET(request) {
 
     Object.entries(rawPicks).forEach(([uid, userPicks]) => {
       if (isLocked) {
-        // Locked: All picks visible
         sanitizedPicks[uid] = userPicks;
       } else {
-        // Open: Only return selections to the owner
         if (uid === requestingUserId) {
           sanitizedPicks[uid] = userPicks;
         } else {
-          // Provide placeholder objects preserving length for status badges
-          sanitizedPicks[uid] = Array.isArray(userPicks) && userPicks.length === 5
-            ? [{ hidden: true }, { hidden: true }, { hidden: true }, { hidden: true }, { hidden: true }]
-            : [];
+          sanitizedPicks[uid] =
+            Array.isArray(userPicks) && userPicks.length === 5
+              ? [{ hidden: true }, { hidden: true }, { hidden: true }, { hidden: true }, { hidden: true }]
+              : [];
         }
       }
     });
