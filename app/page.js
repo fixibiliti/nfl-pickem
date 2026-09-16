@@ -453,15 +453,14 @@ export default function Home() {
         <div className="flex justify-between items-center">
           <div>
             <h1 className="text-base font-black text-emerald-400 tracking-wide">NFL 5-PICK'EM</h1>
-            <div className="flex items-center gap-2 mt-0.5">
+            <div className="flex items-center gap-2 mt-1">
               <span className="text-xs text-slate-400">
                 Player: <span className="text-white font-bold">{user.name}</span>
               </span>
-              <span className="text-slate-600 text-xs">•</span>
               <button
                 type="button"
                 onClick={handleLogout}
-                className="text-[11px] font-semibold text-rose-400 hover:text-rose-300 hover:underline transition cursor-pointer"
+                className="text-[10px] px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wider bg-rose-500/20 text-rose-400 border border-rose-500/30 hover:bg-rose-500/30 transition-all cursor-pointer active:scale-95"
               >
                 Log Out
               </button>
