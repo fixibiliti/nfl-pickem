@@ -11,9 +11,14 @@ export async function GET(request) {
 
     const users = (await readData('users.json')) || [];
     const requester = users.find((u) => u.id === requesterId);
-    const isAuthorizedAdmin = requester && (requester.isAdmin === true || requester.id === 'user_1' || (requester.name && requester.name.toLowerCase() === 'ryan'));
+
+    const isAuthorizedAdmin =
+      requester &&
+      (requester.isAdmin === true ||
+        requester.id === 'user_1' ||
+        (requester.name && requester.name.toLowerCase() === 'ryan'));
+
     if (!isAuthorizedAdmin) {
-    if (!requester || !requester.isAdmin) {
       return NextResponse.json({ error: 'Unauthorized: Admin access required.' }, { status: 403 });
     }
 
@@ -21,7 +26,7 @@ export async function GET(request) {
     const sanitizedUsers = users.map((u) => ({
       id: u.id,
       name: u.name,
-      isAdmin: u.isAdmin || false,
+      isAdmin: u.isAdmin || u.id === 'user_1' || false,
       mustChangePin: u.mustChangePin || false,
       createdAt: u.createdAt || null
     }));
@@ -40,10 +45,14 @@ export async function POST(request) {
 
     const users = (await readData('users.json')) || [];
     const requester = users.find((u) => u.id === requesterId);
-    const isAuthorizedAdmin = requester && (requester.isAdmin === true || requester.id === 'user_1' || (requester.name && requester.name.toLowerCase() === 'ryan'));
-    if (!isAuthorizedAdmin) {
 
-    if (!requester || !requester.isAdmin) {
+    const isAuthorizedAdmin =
+      requester &&
+      (requester.isAdmin === true ||
+        requester.id === 'user_1' ||
+        (requester.name && requester.name.toLowerCase() === 'ryan'));
+
+    if (!isAuthorizedAdmin) {
       return NextResponse.json({ error: 'Unauthorized: Admin access required.' }, { status: 403 });
     }
 
@@ -58,12 +67,15 @@ export async function POST(request) {
       users[userIndex].mustChangePin = true;
 
       await writeData('users.json', users);
-      return NextResponse.json({ success: true, message: `PIN for ${users[userIndex].name} reset to 0000.` });
+      return NextResponse.json({
+        success: true,
+        message: `PIN for ${users[userIndex].name} reset to 0000.`
+      });
     }
 
     if (action === 'delete_user') {
-      if (targetUserId === requesterId) {
-        return NextResponse.json({ error: 'Cannot delete your own admin account.' }, { status: 400 });
+      if (targetUserId === requesterId || targetUserId === 'user_1') {
+        return NextResponse.json({ error: 'Cannot delete the commissioner admin account.' }, { status: 400 });
       }
 
       // 1. Remove from users.json
@@ -82,7 +94,10 @@ export async function POST(request) {
         await writeData('picks.json', picks);
       }
 
-      return NextResponse.json({ success: true, message: 'User cleanly removed from all league records.' });
+      return NextResponse.json({
+        success: true,
+        message: 'User cleanly removed from all league records.'
+      });
     }
 
     return NextResponse.json({ error: 'Invalid admin action.' }, { status: 400 });
