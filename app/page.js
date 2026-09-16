@@ -1101,29 +1101,31 @@ try {
         </main>
       )}
 
-      {/* TAB 5: COMMISSIONER ADMIN PANEL */}
+     {/* TAB 5: COMMISSIONER ADMIN PANEL */}
       {activeTab === 'admin' && user?.isAdmin && (
         <main className="px-3 py-3 space-y-4">
           <div className="flex justify-between items-center px-1">
             <div>
               <h2 className="text-sm font-black text-amber-400 tracking-wide uppercase">League Administration</h2>
-              <p className="text-[11px] text-slate-400">Manage league users, reset PINs, and maintain rosters</p>
+              <p className="text-[11px] text-slate-400">Manage players, registration codes, and game state</p>
             </div>
             <button
-              onClick={loadAdminUsers}
+              onClick={loadAdminData}
               disabled={adminLoading}
-              className="text-xs px-2.5 py-1 bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-300 rounded-lg transition active:scale-95"
+              className="text-xs px-3 py-1.5 bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-300 rounded-xl transition active:scale-95 flex items-center gap-1"
             >
-              {adminLoading ? 'Refreshing...' : '⟳ Refresh'}
+              <span>{adminLoading ? '⏳' : '⟳'}</span>
+              <span>{adminLoading ? 'Refreshing...' : 'Refresh'}</span>
             </button>
           </div>
 
           {adminMessage && (
-            <div className="bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 px-3 py-2 rounded-xl text-xs font-semibold">
-              ✓ {adminMessage}
+            <div className="bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 px-3.5 py-2.5 rounded-xl text-xs font-semibold flex justify-between items-center">
+              <span>✓ {adminMessage}</span>
+              <button onClick={() => setAdminMessage('')} className="text-slate-500 hover:text-slate-300">✕</button>
             </div>
           )}
-          
+
           {/* League Passcode Management Card */}
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-sm">
             <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider mb-1">
@@ -1137,12 +1139,12 @@ try {
                 type="text"
                 value={newPasscode}
                 onChange={(e) => setNewPasscode(e.target.value.toUpperCase())}
-                placeholder="Enter Passcode"
+                placeholder="Passcode"
                 className="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono text-sm uppercase tracking-wider focus:outline-none focus:border-amber-400"
               />
               <button
                 type="submit"
-                disabled={adminLoading || newPasscode === adminPasscode}
+                disabled={adminLoading || newPasscode === adminPasscode || !newPasscode}
                 className="px-4 py-2 rounded-xl font-bold text-xs bg-amber-400 hover:bg-amber-300 disabled:bg-slate-800 disabled:text-slate-600 text-slate-950 transition active:scale-95"
               >
                 Save
@@ -1150,6 +1152,72 @@ try {
             </form>
           </div>
 
+          {/* Quick Schedule & Week Controls */}
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-sm space-y-3">
+            <div>
+              <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider">
+                Commissioner Slate Controls
+              </h3>
+              <p className="text-[11px] text-slate-400">
+                Trigger manual syncs or advance to next week on demand
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={async () => {
+                  setAdminLoading(true);
+                  try {
+                    const res = await fetch('/api/admin/actions', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ requesterId: user.id, action: 'sync_scores' })
+                    });
+                    const d = await res.json();
+                    setAdminMessage(d.message || 'Scores updated.');
+                    loadSlateAndScores(user.id);
+                  } catch (e) {
+                    alert('Score sync failed.');
+                  } finally {
+                    setAdminLoading(false);
+                  }
+                }}
+                disabled={adminLoading}
+                className="py-2.5 px-3 rounded-xl bg-slate-950 border border-slate-800 hover:border-slate-700 text-xs font-bold text-slate-200 transition active:scale-95 text-center"
+              >
+                🔄 Force Score Sync
+              </button>
+
+              <button
+                type="button"
+                onClick={async () => {
+                  if (!confirm('Advance to next week? This archives current picks to History and fetches the new week slate.')) return;
+                  setAdminLoading(true);
+                  try {
+                    const res = await fetch('/api/admin/actions', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ requesterId: user.id, action: 'advance_week' })
+                    });
+                    const d = await res.json();
+                    setAdminMessage(d.message || 'Week advanced.');
+                    loadSlateAndScores(user.id);
+                  } catch (e) {
+                    alert('Failed to advance week.');
+                  } finally {
+                    setAdminLoading(false);
+                  }
+                }}
+                disabled={adminLoading}
+                className="py-2.5 px-3 rounded-xl bg-slate-950 border border-slate-800 hover:border-amber-400/40 text-xs font-bold text-amber-400 transition active:scale-95 text-center"
+              >
+                ⏭️ Advance Week
+              </button>
+            </div>
+          </div>
+
+          {/* Registered Players Table */}
           <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-sm divide-y divide-slate-800/80">
             <div className="px-4 py-2.5 bg-slate-950/60 text-[10px] font-bold uppercase tracking-wider text-slate-400 flex justify-between">
               <span>Registered Players ({adminUsers.length})</span>
@@ -1206,6 +1274,3 @@ try {
           </div>
         </main>
       )}
-    </div>
-  );
-}

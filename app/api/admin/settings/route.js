@@ -3,7 +3,6 @@ import { readData, writeData } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
-// Helper to confirm admin privileges
 function checkIsAdmin(requester) {
   return (
     requester &&
@@ -13,7 +12,6 @@ function checkIsAdmin(requester) {
   );
 }
 
-// GET: Retrieve current league settings
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -36,7 +34,6 @@ export async function GET(request) {
   }
 }
 
-// POST: Update league passcode
 export async function POST(request) {
   try {
     const { requesterId, passcode } = await request.json();
@@ -60,7 +57,7 @@ export async function POST(request) {
     return NextResponse.json({
       success: true,
       leaguePasscode: cleanPasscode,
-      message: `League passcode updated to: ${cleanPasscode}`
+      message: `Passcode updated to: ${cleanPasscode}`
     });
   } catch (err) {
     console.error('Update settings failed:', err);
