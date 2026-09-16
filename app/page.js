@@ -33,6 +33,15 @@ export default function Home() {
   const [adminPasscode, setAdminPasscode] = useState('');
   const [newPasscode, setNewPasscode] = useState('');
 
+  // Change PIN State
+  const [showChangePinModal, setShowChangePinModal] = useState(false);
+  const [currentPinInput, setCurrentPinInput] = useState('');
+  const [newPinInput, setNewPinInput] = useState('');
+  const [confirmPinInput, setConfirmPinInput] = useState('');
+  const [changePinError, setChangePinError] = useState('');
+  const [changePinSuccess, setChangePinSuccess] = useState('');
+  const [changePinLoading, setChangePinLoading] = useState(false);
+
   // Tabs: 'slate' | 'leaderboard' | 'history' | 'schedule' | 'admin'
   const [activeTab, setActiveTab] = useState('slate');
   const [week, setWeek] = useState(2);
@@ -311,6 +320,53 @@ try {
     setActiveTab('slate');
   };
 
+  const handleChangePinSubmit = async (e) => {
+    e.preventDefault();
+    setChangePinError('');
+    setChangePinSuccess('');
+
+    if (newPinInput.length !== 4 || !/^\d{4}$/.test(newPinInput)) {
+      setChangePinError('New PIN must be exactly 4 digits.');
+      return;
+    }
+
+    if (newPinInput !== confirmPinInput) {
+      setChangePinError('New PINs do not match.');
+      return;
+    }
+
+    setChangePinLoading(true);
+    try {
+      const res = await fetch('/api/auth/change-pin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: user.id,
+          currentPin: currentPinInput,
+          newPin: newPinInput
+        })
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        setChangePinSuccess('PIN updated successfully!');
+        setTimeout(() => {
+          setShowChangePinModal(false);
+          setCurrentPinInput('');
+          setNewPinInput('');
+          setConfirmPinInput('');
+          setChangePinSuccess('');
+        }, 1200);
+      } else {
+        setChangePinError(data.error || 'Failed to update PIN.');
+      }
+    } catch (err) {
+      setChangePinError('Network error. Try again.');
+    } finally {
+      setChangePinLoading(false);
+    }
+  };
+
   const handleSaveNewPin = async (e) => {
     e.preventDefault();
     setError('');
@@ -403,7 +459,7 @@ try {
                 maxLength={4}
                 value={newPin}
                 onChange={(e) => setNewPin(e.target.value)}
-                placeholder="••••"
+                placeholder=""
                 className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white tracking-widest text-center text-lg focus:outline-none focus:border-emerald-500"
               />
             </div>
@@ -415,7 +471,7 @@ try {
                 maxLength={4}
                 value={confirmPin}
                 onChange={(e) => setConfirmPin(e.target.value)}
-                placeholder="••••"
+                placeholder=""
                 className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white tracking-widest text-center text-lg focus:outline-none focus:border-emerald-500"
               />
             </div>
@@ -551,46 +607,60 @@ try {
     <div className="min-h-screen bg-slate-950 text-slate-100 pb-20 font-sans max-w-lg mx-auto">
       {/* Top Header */}
       <header className="sticky top-0 z-50 bg-slate-900/95 backdrop-blur border-b border-slate-800 px-4 py-3 shadow-md">
-        <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-base font-black text-emerald-400 tracking-wide">NFL 5-PICK'EM</h1>
-            <div className="flex items-center gap-2 mt-1">
-              <span className="text-xs text-slate-400">
-                Player: <span className="text-white font-bold">{user.name}</span>
-              </span>
+       {/* Top Header Row: 3-column layout */}
+        <div className="flex justify-between items-start pt-1 pb-2">
+          {/* Left Column: Player Info & Actions */}
+          <div className="flex flex-col items-start gap-1">
+            <div className="text-xs text-slate-400">
+              Player: <span className="font-bold text-white">{user?.name}</span>
+            </div>
+            <div className="flex items-center gap-1.5 mt-0.5">
               <button
                 type="button"
                 onClick={handleLogout}
-                className="text-[10px] px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wider bg-rose-500/20 text-rose-400 border border-rose-500/30 hover:bg-rose-500/30 transition-all cursor-pointer active:scale-95"
+                className="text-[10px] font-bold text-rose-400 hover:text-rose-300 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 px-2 py-0.5 rounded transition active:scale-95"
               >
-                Log Out
+                LOG OUT
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setChangePinError('');
+                  setChangePinSuccess('');
+                  setCurrentPinInput('');
+                  setNewPinInput('');
+                  setConfirmPinInput('');
+                  setShowChangePinModal(true);
+                }}
+                className="text-[10px] font-bold text-slate-300 hover:text-white bg-slate-900 hover:bg-slate-800 border border-slate-700 px-2 py-0.5 rounded transition active:scale-95"
+              >
+                CHANGE PIN
               </button>
             </div>
           </div>
 
-          <div className="flex flex-col items-end">
+          {/* Center Column: App Title */}
+          <div className="text-center">
+            <h1 className="text-base sm:text-lg font-black tracking-wider text-emerald-400 uppercase">
+              NFL 5-PICK'EM
+            </h1>
+          </div>
+
+          {/* Right Column: Picks Open Badge & Countdown */}
+          <div className="flex flex-col items-end gap-1">
             <span
-              className={`text-[10px] px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wider ${
+              className={`text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full tracking-wider border ${
                 isScheduleLocked
-                  ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
-                  : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                  ? 'bg-rose-500/20 text-rose-400 border-rose-500/40'
+                  : 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40'
               }`}
             >
-              {isScheduleLocked ? 'Picks Locked' : 'Picks Open'}
+              {isScheduleLocked ? 'PICKS LOCKED' : 'PICKS OPEN'}
             </span>
-            <span className="text-[11px] font-mono font-medium text-slate-300 mt-1">
-              {isScheduleLocked ? '🔒 Closed' : `⏳ ${timeLeft}`}
-            </span>
-            {!isScheduleLocked && slate && slate.length > 0 && (
-              <span className="text-[9px] text-slate-400">
-                {(() => {
-                  const sorted = [...slate].sort((a, b) => new Date(a.date) - new Date(b.date));
-                  const first = sorted[0];
-                  if (!first?.date) return '';
-                  return `Locks: ${first.dayOfWeek.slice(0, 3)} @ ${new Date(first.date).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`;
-                })()}
-              </span>
-            )}
+            <div className="text-[10px] font-mono text-slate-400 flex items-center gap-1">
+              <span>⏳</span>
+              <span>{timeRemaining}</span>
+            </div>
           </div>
         </div>
       </header>
@@ -1281,6 +1351,101 @@ try {
             })}
           </div>
        </main>
+      )}
+    {/* CHANGE PIN MODAL */}
+      {showChangePinModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4">
+          <div className="bg-slate-900 border border-slate-800 w-full max-w-xs rounded-2xl p-5 shadow-2xl space-y-4">
+            <div className="flex justify-between items-center border-b border-slate-800 pb-3">
+              <h3 className="text-sm font-bold text-white uppercase tracking-wider">
+                Change 4-Digit PIN
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowChangePinModal(false)}
+                className="text-slate-400 hover:text-white text-xs font-bold px-1"
+              >
+                ✕
+              </button>
+            </div>
+
+            {changePinError && (
+              <div className="bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs px-3 py-2 rounded-xl text-center">
+                {changePinError}
+              </div>
+            )}
+
+            {changePinSuccess && (
+              <div className="bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs px-3 py-2 rounded-xl text-center">
+                ✓ {changePinSuccess}
+              </div>
+            )}
+
+            <form onSubmit={handleChangePinSubmit} className="space-y-3">
+              <div>
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                  Current PIN
+                </label>
+                <input
+                  type="password"
+                  maxLength={4}
+                  value={currentPinInput}
+                  onChange={(e) => setCurrentPinInput(e.target.value.replace(/\D/g, ''))}
+                  placeholder=""
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-center text-white tracking-widest text-lg font-mono focus:outline-none focus:border-amber-400"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                  New 4-Digit PIN
+                </label>
+                <input
+                  type="password"
+                  maxLength={4}
+                  value={newPinInput}
+                  onChange={(e) => setNewPinInput(e.target.value.replace(/\D/g, ''))}
+                  placeholder=""
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-center text-white tracking-widest text-lg font-mono focus:outline-none focus:border-amber-400"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                  Confirm New PIN
+                </label>
+                <input
+                  type="password"
+                  maxLength={4}
+                  value={confirmPinInput}
+                  onChange={(e) => setConfirmPinInput(e.target.value.replace(/\D/g, ''))}
+                  placeholder=""
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-center text-white tracking-widest text-lg font-mono focus:outline-none focus:border-amber-400"
+                  required
+                />
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowChangePinModal(false)}
+                  className="flex-1 py-2 rounded-xl text-xs font-bold text-slate-400 bg-slate-950 border border-slate-800 hover:text-white"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={changePinLoading || !currentPinInput || !newPinInput || !confirmPinInput}
+                  className="flex-1 py-2 rounded-xl text-xs font-bold text-slate-950 bg-amber-400 hover:bg-amber-300 disabled:bg-slate-800 disabled:text-slate-600 transition"
+                >
+                  {changePinLoading ? 'Saving...' : 'Update PIN'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
     </div>
   );
