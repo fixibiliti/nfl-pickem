@@ -22,7 +22,8 @@ export default function Home() {
   const [fullSchedule, setFullSchedule] = useState([]);
   const [loadingSchedule, setLoadingSchedule] = useState(false);
 
-  const [activeTab, setActiveTab] = useState('slate'); // 'slate' | 'history' | 'schedule'
+  // Tabs: 'slate' | 'leaderboard' | 'history' | 'schedule'
+  const [activeTab, setActiveTab] = useState('slate');
   const [week, setWeek] = useState(2);
   const [isScheduleLocked, setIsScheduleLocked] = useState(false);
   const [timeLeft, setTimeLeft] = useState('');
@@ -127,7 +128,7 @@ export default function Home() {
   };
 
   const loadFullSchedule = async (targetWeek) => {
-    if (fullSchedule.length > 0) return; // Cached in state
+    if (fullSchedule.length > 0) return; // Cached in memory
     setLoadingSchedule(true);
     try {
       const res = await fetch(`/api/schedule?week=${targetWeek || week}`);
@@ -233,6 +234,9 @@ export default function Home() {
 
   const viewingPlayerName = standings.find((s) => s.id === viewingUserId)?.name || user?.name;
   const currentDisplayedPicks = allPicks[viewingUserId] || {};
+
+  // Sort standings highest score to lowest for the Leaderboard
+  const sortedStandings = [...standings].sort((a, b) => (b.totalScore || 0) - (a.totalScore || 0));
 
   // SCREEN A: FIRST-TIME PIN CREATION
   if (isChangingPin) {
@@ -341,7 +345,7 @@ export default function Home() {
   // SCREEN C: MAIN APPLICATION DASHBOARD
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 pb-20 font-sans max-w-lg mx-auto">
-      {/* Top Header */}
+      {/* Top Header - System Slate Status */}
       <header className="sticky top-0 z-50 bg-slate-900/95 backdrop-blur border-b border-slate-800 px-4 py-3 shadow-md">
         <div className="flex justify-between items-center">
           <div>
@@ -378,7 +382,7 @@ export default function Home() {
         </div>
       </header>
 
-      {/* Navigation Tabs (3 Tabs Now) */}
+      {/* Navigation Tabs (4 Clean Tabs) */}
       <div className="flex bg-slate-900 border-b border-slate-800 px-2 pt-2">
         <button
           onClick={() => setActiveTab('slate')}
@@ -388,7 +392,17 @@ export default function Home() {
               : 'border-transparent text-slate-400 hover:text-slate-200'
           }`}
         >
-          Weekly Picks
+          Picks
+        </button>
+        <button
+          onClick={() => setActiveTab('leaderboard')}
+          className={`flex-1 py-2.5 text-xs font-bold transition border-b-2 text-center ${
+            activeTab === 'leaderboard'
+              ? 'border-emerald-400 text-emerald-400'
+              : 'border-transparent text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          Leaderboard 🏆
         </button>
         <button
           onClick={() => {
@@ -418,65 +432,9 @@ export default function Home() {
         </button>
       </div>
 
-      {/* Leaderboard with Individual Player Lock Badges */}
-      <section className="p-4 mx-3 my-3 bg-slate-900 border border-slate-800 rounded-2xl shadow-sm">
-        <div className="flex justify-between items-center mb-2.5">
-          <h2 className="text-[11px] uppercase tracking-wider font-bold text-slate-400">Season Leaderboard</h2>
-          <span className="text-[10px] text-slate-500 font-medium">Click name to view picks</span>
-        </div>
-        <div className="grid grid-cols-3 gap-2">
-          {standings.map((player) => {
-            const isViewingThisPlayer = player.id === viewingUserId;
-            const playerPicksCount = allPicks[player.id] ? Object.keys(allPicks[player.id]).length : 0;
-            const isPlayerSubmitted = playerPicksCount === 5;
-
-            return (
-              <button
-                type="button"
-                key={player.id}
-                onClick={() => {
-                  setViewingUserId(player.id);
-                  setActiveTab('slate');
-                }}
-                className={`p-2.5 rounded-xl border text-center transition-all cursor-pointer active:scale-95 flex flex-col items-center justify-between min-h-[105px] ${
-                  isViewingThisPlayer
-                    ? 'bg-emerald-500/15 border-emerald-400 ring-1 ring-emerald-400 shadow-md'
-                    : 'bg-slate-950 border-slate-800 hover:border-slate-700 text-slate-300'
-                }`}
-              >
-                <div className="w-full">
-                  <span
-                    className={`text-[11px] font-bold block truncate ${
-                      isViewingThisPlayer ? 'text-emerald-400' : 'text-slate-400'
-                    }`}
-                  >
-                    {player.name} {player.id === user.id ? '★' : ''}
-                  </span>
-                  <span className="text-lg font-black text-white block mt-0.5">
-                    {player.totalScore || 0} <span className="text-[9px] font-normal text-slate-500">pts</span>
-                  </span>
-                </div>
-
-                <div className="mt-1.5 w-full flex justify-center">
-                  {isPlayerSubmitted ? (
-                    <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-0.5 tracking-tight">
-                      <span>🔒</span> Locked In
-                    </span>
-                  ) : (
-                    <span className="text-[9px] font-medium px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700/60 flex items-center gap-0.5 tracking-tight">
-                      <span>⏳</span> Picking...
-                    </span>
-                  )}
-                </div>
-              </button>
-            );
-          })}
-        </div>
-      </section>
-
       {/* TAB 1: WEEKLY PICKS SLATE */}
       {activeTab === 'slate' && (
-        <main className="px-3 space-y-3">
+        <main className="px-3 py-3 space-y-3">
           <div className="flex justify-between items-center px-1">
             <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
               Week {week} Slate • <span className="text-emerald-400">{viewingPlayerName}'s Picks</span>
@@ -662,9 +620,102 @@ export default function Home() {
         </main>
       )}
 
-      {/* TAB 2: SEASON RECAP DASHBOARD */}
+      {/* TAB 2: VERTICAL LEADERBOARD (YOUR SKETCH) */}
+      {activeTab === 'leaderboard' && (
+        <main className="px-3 py-3 space-y-3">
+          <div className="flex justify-between items-center px-1 mb-1">
+            <div>
+              <h2 className="text-sm font-black text-white tracking-wide">SEASON LEADERBOARD</h2>
+              <p className="text-[11px] text-slate-400">Tap any player to view their week's picks</p>
+            </div>
+            <span className="text-xs font-bold px-2 py-1 rounded-lg bg-slate-900 border border-slate-800 text-slate-300">
+              {standings.length} Players
+            </span>
+          </div>
+
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-sm divide-y divide-slate-800/80">
+            {/* Table Header */}
+            <div className="grid grid-cols-12 px-4 py-2.5 bg-slate-950/60 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+              <span className="col-span-2">Rank</span>
+              <span className="col-span-5">Player</span>
+              <span className="col-span-2 text-center">Score</span>
+              <span className="col-span-3 text-right">Status</span>
+            </div>
+
+            {/* Player Rows */}
+            {sortedStandings.map((player, index) => {
+              const isCurrentUser = player.id === user.id;
+              const isViewingThisPlayer = player.id === viewingUserId;
+              const playerPicksCount = allPicks[player.id] ? Object.keys(allPicks[player.id]).length : 0;
+              const isPlayerSubmitted = playerPicksCount === 5;
+
+              // Rank styling: 1st (Gold), 2nd (Silver), 3rd (Bronze)
+              const rank = index + 1;
+              const rankBadgeColor =
+                rank === 1
+                  ? 'text-amber-400 font-black'
+                  : rank === 2
+                  ? 'text-slate-300 font-bold'
+                  : rank === 3
+                  ? 'text-amber-600 font-bold'
+                  : 'text-slate-500 font-semibold';
+
+              return (
+                <button
+                  type="button"
+                  key={player.id}
+                  onClick={() => {
+                    setViewingUserId(player.id);
+                    setActiveTab('slate');
+                  }}
+                  className={`w-full grid grid-cols-12 items-center px-4 py-3.5 text-left transition-colors cursor-pointer active:bg-slate-800/70 ${
+                    isCurrentUser ? 'bg-emerald-500/10 hover:bg-emerald-500/15' : 'hover:bg-slate-800/40'
+                  } ${isViewingThisPlayer && !isCurrentUser ? 'ring-1 ring-inset ring-emerald-400/40' : ''}`}
+                >
+                  {/* Rank */}
+                  <span className={`col-span-2 text-sm ${rankBadgeColor}`}>
+                    #{rank}
+                  </span>
+
+                  {/* Player Name */}
+                  <div className="col-span-5 flex items-center gap-1.5 truncate">
+                    <span className={`text-xs font-bold truncate ${isCurrentUser ? 'text-emerald-400' : 'text-slate-200'}`}>
+                      {player.name}
+                    </span>
+                    {isCurrentUser && (
+                      <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                        YOU
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Points */}
+                  <span className="col-span-2 text-center font-black text-sm text-white">
+                    {player.totalScore || 0}
+                  </span>
+
+                  {/* Status Pill */}
+                  <div className="col-span-3 flex justify-end">
+                    {isPlayerSubmitted ? (
+                      <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-0.5 tracking-tight">
+                        <span>🔒</span> Locked
+                      </span>
+                    ) : (
+                      <span className="text-[9px] font-medium px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700/60 flex items-center gap-0.5 tracking-tight">
+                        <span>⏳</span> Picking
+                      </span>
+                    )}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </main>
+      )}
+
+      {/* TAB 3: SEASON RECAP DASHBOARD */}
       {activeTab === 'history' && (
-        <main className="px-3 space-y-4">
+        <main className="px-3 py-3 space-y-4">
           <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider px-1">Picks & Results History</h3>
 
           {historyData.length === 0 ? (
@@ -735,9 +786,9 @@ export default function Home() {
         </main>
       )}
 
-      {/* TAB 3: FULL NFL SCHEDULE (AT A GLANCE) */}
+      {/* TAB 4: FULL NFL SCHEDULE */}
       {activeTab === 'schedule' && (
-        <main className="px-3 space-y-3">
+        <main className="px-3 py-3 space-y-3">
           <div className="flex justify-between items-center px-1">
             <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
               Week {week} Full NFL Schedule
@@ -758,7 +809,6 @@ export default function Home() {
           ) : (
             <div className="space-y-2.5">
               {fullSchedule.map((game) => {
-                // Check if this game is on our current 5-Pick'em slate!
                 const isPickemGame = slate.some((sg) => sg.gameId === game.gameId);
 
                 return (
@@ -770,7 +820,6 @@ export default function Home() {
                         : 'bg-slate-900/60 border-slate-800/80 hover:border-slate-700'
                     }`}
                   >
-                    {/* Header Row: Day, Time, Network, Pick'em Tag */}
                     <div className="flex justify-between items-center text-[10px] font-medium text-slate-400 border-b border-slate-800/60 pb-1.5 mb-2">
                       <span className="text-slate-300 font-semibold">
                         {game.dayOfWeek} {new Date(game.date).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit' })} • {new Date(game.date).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
@@ -799,7 +848,6 @@ export default function Home() {
                       </div>
                     </div>
 
-                    {/* Scoreboard Strip: Away vs. Home */}
                     <div className="grid grid-cols-2 gap-2 items-center text-xs">
                       {/* Away Team */}
                       <div className="flex items-center justify-between bg-slate-950/70 p-2 rounded-lg border border-slate-800/60">
