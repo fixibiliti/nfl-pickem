@@ -27,8 +27,8 @@ export async function POST(request) {
       user: {
         id: user.id,
         name: user.name,
-        mustChangePin: user.mustChangePin || false
-        isAdmin: user.isAdmin || false      
+        mustChangePin: user.mustChangePin || false,
+        isAdmin: user.isAdmin || false
       }
     });
   } catch (err) {
