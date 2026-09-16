@@ -6,6 +6,10 @@ export default function Home() {
   const [name, setName] = useState('');
   const [pin, setPin] = useState('');
 
+  // Self-Serve Auth States
+  const [authMode, setAuthMode] = useState('login'); // 'login' | 'signup'
+  const [leaguePasscode, setLeaguePasscode] = useState('');
+
   // PIN Change State
   const [isChangingPin, setIsChangingPin] = useState(false);
   const [newPin, setNewPin] = useState('');
@@ -128,7 +132,7 @@ export default function Home() {
   };
 
   const loadFullSchedule = async (targetWeek) => {
-    if (fullSchedule.length > 0) return; // Cached in memory
+    if (fullSchedule.length > 0) return;
     setLoadingSchedule(true);
     try {
       const res = await fetch(`/api/schedule?week=${targetWeek || week}`);
@@ -141,28 +145,52 @@ export default function Home() {
     }
   };
 
-  const handleLogin = async (e) => {
+  // Unified Handler for Login & Sign Up
+  const handleAuthSubmit = async (e) => {
     e.preventDefault();
     setError('');
-    const res = await fetch('/api/auth/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, pin })
-    });
-    const data = await res.json();
+    setLoading(true);
 
-    if (res.ok) {
-      if (data.user.mustChangePin) {
-        setUser(data.user);
-        setIsChangingPin(true);
+    if (authMode === 'login') {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, pin })
+      });
+      const data = await res.json();
+      setLoading(false);
+
+      if (res.ok) {
+        if (data.user.mustChangePin) {
+          setUser(data.user);
+          setIsChangingPin(true);
+        } else {
+          setUser(data.user);
+          localStorage.setItem('nfl_pickem_user', JSON.stringify(data.user));
+          loadSlateAndScores(data.user.id);
+          loadHistory();
+        }
       } else {
+        setError(data.error || 'Invalid Name or PIN');
+      }
+    } else {
+      // Sign Up (Registration)
+      const res = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, pin, passcode: leaguePasscode })
+      });
+      const data = await res.json();
+      setLoading(false);
+
+      if (res.ok) {
         setUser(data.user);
         localStorage.setItem('nfl_pickem_user', JSON.stringify(data.user));
         loadSlateAndScores(data.user.id);
         loadHistory();
+      } else {
+        setError(data.error || 'Registration failed.');
       }
-    } else {
-      setError(data.error || 'Invalid Name or PIN');
     }
   };
 
@@ -234,8 +262,6 @@ export default function Home() {
 
   const viewingPlayerName = standings.find((s) => s.id === viewingUserId)?.name || user?.name;
   const currentDisplayedPicks = allPicks[viewingUserId] || {};
-
-  // Sort standings highest score to lowest for the Leaderboard
   const sortedStandings = [...standings].sort((a, b) => (b.totalScore || 0) - (a.totalScore || 0));
 
   // SCREEN A: FIRST-TIME PIN CREATION
@@ -292,49 +318,111 @@ export default function Home() {
     );
   }
 
-  // SCREEN B: STANDARD LOGIN
+  // SCREEN B: DYNAMIC AUTH (LOGIN & SELF-SERVE SIGN UP)
   if (!user) {
     return (
       <main className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-center items-center px-4">
         <div className="w-full max-w-sm bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl">
-          <div className="text-center mb-6">
+          <div className="text-center mb-5">
             <span className="text-4xl">🏈</span>
-            <h1 className="text-2xl font-black text-emerald-400 tracking-tight mt-2">NFL 5-PICK'EM</h1>
-            <p className="text-xs text-slate-400 mt-1">Ryan vs. Angi vs. Mary • 2026 Challenge</p>
+            <h1 className="text-2xl font-black text-emerald-400 tracking-tight mt-1">NFL 5-PICK'EM</h1>
+            <p className="text-xs text-slate-400 mt-0.5">2026 Weekly Pick'em Challenge</p>
           </div>
 
-          <form onSubmit={handleLogin} className="space-y-4">
+          {/* Login / Sign Up Toggle Switch */}
+          <div className="flex bg-slate-950 p-1 rounded-xl border border-slate-800/80 mb-5">
+            <button
+              type="button"
+              onClick={() => {
+                setAuthMode('login');
+                setError('');
+              }}
+              className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition ${
+                authMode === 'login'
+                  ? 'bg-emerald-500 text-slate-950 shadow'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              Log In
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setAuthMode('signup');
+                setError('');
+              }}
+              className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition ${
+                authMode === 'signup'
+                  ? 'bg-emerald-500 text-slate-950 shadow'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              Join League (Sign Up)
+            </button>
+          </div>
+
+          <form onSubmit={handleAuthSubmit} className="space-y-3.5">
             <div>
-              <label className="block text-xs font-semibold text-slate-400 mb-1">Select Player</label>
-              <select
+              <label className="block text-xs font-semibold text-slate-400 mb-1">
+                {authMode === 'login' ? 'Your Name' : 'Choose Your Display Name'}
+              </label>
+              <input
+                type="text"
+                required
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-emerald-500 text-sm"
-              >
-                <option value="">Choose your name...</option>
-                <option value="Ryan">Ryan</option>
-                <option value="Angi">Angi</option>
-                <option value="Mary">Mary</option>
-              </select>
+                placeholder={authMode === 'login' ? 'e.g. Ryan' : 'e.g. Dave B'}
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-emerald-500 text-sm"
+              />
             </div>
+
             <div>
-              <label className="block text-xs font-semibold text-slate-400 mb-1">4-Digit PIN</label>
+              <label className="block text-xs font-semibold text-slate-400 mb-1">
+                {authMode === 'login' ? '4-Digit PIN' : 'Create a 4-Digit PIN'}
+              </label>
               <input
                 type="password"
                 inputMode="numeric"
                 maxLength={4}
+                required
                 value={pin}
                 onChange={(e) => setPin(e.target.value)}
                 placeholder="••••"
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white tracking-widest text-center text-lg focus:outline-none focus:border-emerald-500"
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-white tracking-widest text-center text-base focus:outline-none focus:border-emerald-500"
               />
             </div>
+
+            {authMode === 'signup' && (
+              <div>
+                <label className="block text-xs font-semibold text-slate-400 mb-1">
+                  League Passcode
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={leaguePasscode}
+                  onChange={(e) => setLeaguePasscode(e.target.value)}
+                  placeholder="Ask Commissioner for Code"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-white font-mono text-center uppercase text-sm tracking-wider focus:outline-none focus:border-emerald-500"
+                />
+                <span className="text-[10px] text-slate-500 block text-center mt-1">
+                  Prevents unauthorized sign-ups
+                </span>
+              </div>
+            )}
+
             {error && <p className="text-xs text-rose-400 text-center font-semibold">{error}</p>}
+
             <button
               type="submit"
-              className="w-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black py-3.5 rounded-xl transition shadow-lg text-sm tracking-wide active:scale-95"
+              disabled={loading}
+              className="w-full bg-emerald-500 hover:bg-emerald-400 disabled:bg-slate-800 disabled:text-slate-600 text-slate-950 font-black py-3 rounded-xl transition shadow-lg text-xs uppercase tracking-wider active:scale-95 mt-2"
             >
-              ENTER DASHBOARD
+              {loading
+                ? 'VERIFYING...'
+                : authMode === 'login'
+                ? 'ENTER DASHBOARD'
+                : 'CREATE ACCOUNT & JOIN'}
             </button>
           </form>
         </div>
@@ -620,7 +708,7 @@ export default function Home() {
         </main>
       )}
 
-      {/* TAB 2: VERTICAL LEADERBOARD (YOUR SKETCH) */}
+      {/* TAB 2: VERTICAL LEADERBOARD */}
       {activeTab === 'leaderboard' && (
         <main className="px-3 py-3 space-y-3">
           <div className="flex justify-between items-center px-1 mb-1">
@@ -634,7 +722,6 @@ export default function Home() {
           </div>
 
           <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-sm divide-y divide-slate-800/80">
-            {/* Table Header */}
             <div className="grid grid-cols-12 px-4 py-2.5 bg-slate-950/60 text-[10px] font-bold uppercase tracking-wider text-slate-400">
               <span className="col-span-2">Rank</span>
               <span className="col-span-5">Player</span>
@@ -642,14 +729,12 @@ export default function Home() {
               <span className="col-span-3 text-right">Status</span>
             </div>
 
-            {/* Player Rows */}
             {sortedStandings.map((player, index) => {
               const isCurrentUser = player.id === user.id;
               const isViewingThisPlayer = player.id === viewingUserId;
               const playerPicksCount = allPicks[player.id] ? Object.keys(allPicks[player.id]).length : 0;
               const isPlayerSubmitted = playerPicksCount === 5;
 
-              // Rank styling: 1st (Gold), 2nd (Silver), 3rd (Bronze)
               const rank = index + 1;
               const rankBadgeColor =
                 rank === 1
@@ -672,12 +757,10 @@ export default function Home() {
                     isCurrentUser ? 'bg-emerald-500/10 hover:bg-emerald-500/15' : 'hover:bg-slate-800/40'
                   } ${isViewingThisPlayer && !isCurrentUser ? 'ring-1 ring-inset ring-emerald-400/40' : ''}`}
                 >
-                  {/* Rank */}
                   <span className={`col-span-2 text-sm ${rankBadgeColor}`}>
                     #{rank}
                   </span>
 
-                  {/* Player Name */}
                   <div className="col-span-5 flex items-center gap-1.5 truncate">
                     <span className={`text-xs font-bold truncate ${isCurrentUser ? 'text-emerald-400' : 'text-slate-200'}`}>
                       {player.name}
@@ -689,12 +772,10 @@ export default function Home() {
                     )}
                   </div>
 
-                  {/* Points */}
                   <span className="col-span-2 text-center font-black text-sm text-white">
                     {player.totalScore || 0}
                   </span>
 
-                  {/* Status Pill */}
                   <div className="col-span-3 flex justify-end">
                     {isPlayerSubmitted ? (
                       <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-0.5 tracking-tight">
@@ -731,27 +812,6 @@ export default function Home() {
                 </div>
 
                 {archive.games?.map((g) => {
-                  const ryanPick = archive.picks?.['user_1']?.find((p) => p.gameId === g.gameId)?.selectedTeamId;
-                  const angiPick = archive.picks?.['user_2']?.find((p) => p.gameId === g.gameId)?.selectedTeamId;
-                  const maryPick = archive.picks?.['user_3']?.find((p) => p.gameId === g.gameId)?.selectedTeamId;
-
-                  const getPickDisplay = (pickId) => {
-                    if (!pickId) return '-';
-                    const isWinner = g.winnerId && pickId === g.winnerId;
-                    const teamAbbrev = pickId === g.homeTeam.id ? g.homeTeam.abbrev : g.awayTeam.abbrev;
-                    return (
-                      <span
-                        className={`px-2 py-0.5 rounded font-bold text-[11px] ${
-                          isWinner
-                            ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'
-                            : 'bg-slate-800 text-slate-300'
-                        }`}
-                      >
-                        {teamAbbrev} {isWinner ? '✓' : ''}
-                      </span>
-                    );
-                  };
-
                   return (
                     <div key={g.gameId} className="bg-slate-950 p-3 rounded-xl border border-slate-800/80 text-xs">
                       <div className="flex justify-between items-center font-bold text-slate-200 border-b border-slate-800/60 pb-2 mb-2">
@@ -764,18 +824,30 @@ export default function Home() {
                       </div>
 
                       <div className="grid grid-cols-3 gap-2 text-center pt-1">
-                        <div>
-                          <span className="text-[10px] text-slate-500 block mb-1">Ryan</span>
-                          {getPickDisplay(ryanPick)}
-                        </div>
-                        <div>
-                          <span className="text-[10px] text-slate-500 block mb-1">Angi</span>
-                          {getPickDisplay(angiPick)}
-                        </div>
-                        <div>
-                          <span className="text-[10px] text-slate-500 block mb-1">Mary</span>
-                          {getPickDisplay(maryPick)}
-                        </div>
+                        {standings.map((p) => {
+                          const userPick = archive.picks?.[p.id]?.find((pk) => pk.gameId === g.gameId)?.selectedTeamId;
+                          const isWinner = g.winnerId && userPick === g.winnerId;
+                          const teamAbbrev = userPick === g.homeTeam.id ? g.homeTeam.abbrev : g.awayTeam.abbrev;
+
+                          return (
+                            <div key={p.id}>
+                              <span className="text-[10px] text-slate-500 block mb-1 truncate">{p.name}</span>
+                              {userPick ? (
+                                <span
+                                  className={`px-2 py-0.5 rounded font-bold text-[11px] ${
+                                    isWinner
+                                      ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'
+                                      : 'bg-slate-800 text-slate-300'
+                                  }`}
+                                >
+                                  {teamAbbrev} {isWinner ? '✓' : ''}
+                                </span>
+                              ) : (
+                                <span className="text-slate-600">-</span>
+                              )}
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
                   );
