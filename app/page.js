@@ -679,9 +679,9 @@ try {
               </span>
               <div className="flex items-center gap-2">
                 {!isScheduleLocked && (
-                  <span className="text-amber-400 font-semibold text-[10px] bg-amber-400/10 border border-amber-400/20 px-2 py-0.5 rounded">
-                    🔒 Hidden Until Kickoff
-                  </span>
+                <span className="text-rose-400 font-semibold text-[10px] bg-rose-500/10 border border-rose-500/30 px-2 py-0.5 rounded">
+                     🔒 Hidden Until Kickoff
+                </span>
                 )}
                 <button
                   type="button"
