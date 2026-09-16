@@ -659,7 +659,7 @@ try {
             </span>
             <div className="text-[10px] font-mono text-slate-400 flex items-center gap-1">
               <span>⏳</span>
-              <span>{timeRemaining}</span>
+              <span>{timeLeft}</span>
             </div>
           </div>
         </div>
