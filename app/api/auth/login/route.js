@@ -28,6 +28,7 @@ export async function POST(request) {
         id: user.id,
         name: user.name,
         mustChangePin: user.mustChangePin || false
+        isAdmin: user.isAdmin || false      
       }
     });
   } catch (err) {

@@ -1,5 +1,23 @@
 [
-  { "id": "user_1", "name": "Ryan", "pin": "0000", "mustChangePin": true },
-  { "id": "user_2", "name": "Angi", "pin": "0000", "mustChangePin": true },
-  { "id": "user_3", "name": "Mary", "pin": "0000", "mustChangePin": true }
+  {
+    "id": "user_1",
+    "name": "Ryan",
+    "pin": "1234",
+    "mustChangePin": true,
+    "isAdmin": true
+  },
+  {
+    "id": "user_2",
+    "name": "Angi",
+    "pin": "1234",
+    "mustChangePin": true,
+    "isAdmin": false
+  },
+  {
+    "id": "user_3",
+    "name": "Mary",
+    "pin": "1234",
+    "mustChangePin": true,
+    "isAdmin": false
+  }
 ]

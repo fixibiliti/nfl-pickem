@@ -26,7 +26,12 @@ export default function Home() {
   const [fullSchedule, setFullSchedule] = useState([]);
   const [loadingSchedule, setLoadingSchedule] = useState(false);
 
-  // Tabs: 'slate' | 'leaderboard' | 'history' | 'schedule'
+  // Admin State
+  const [adminUsers, setAdminUsers] = useState([]);
+  const [adminLoading, setAdminLoading] = useState(false);
+  const [adminMessage, setAdminMessage] = useState('');
+
+  // Tabs: 'slate' | 'leaderboard' | 'history' | 'schedule' | 'admin'
   const [activeTab, setActiveTab] = useState('slate');
   const [week, setWeek] = useState(2);
   const [isScheduleLocked, setIsScheduleLocked] = useState(false);
@@ -145,6 +150,54 @@ export default function Home() {
     }
   };
 
+  const loadAdminUsers = async () => {
+    if (!user?.isAdmin) return;
+    setAdminLoading(true);
+    try {
+      const res = await fetch(`/api/admin/users?requesterId=${user.id}`);
+      const data = await res.json();
+      if (res.ok) {
+        setAdminUsers(data.users || []);
+      }
+    } catch (err) {
+      console.error('Failed to load admin users:', err);
+    } finally {
+      setAdminLoading(false);
+    }
+  };
+
+  const handleAdminAction = async (action, targetUserId) => {
+    setAdminMessage('');
+    if (action === 'delete_user' && !confirm('Are you sure you want to completely delete this user and their picks?')) {
+      return;
+    }
+
+    setAdminLoading(true);
+    try {
+      const res = await fetch('/api/admin/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          requesterId: user.id,
+          action,
+          targetUserId
+        })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setAdminMessage(data.message || 'Action completed successfully.');
+        loadAdminUsers();
+        loadSlateAndScores(user.id);
+      } else {
+        alert(data.error || 'Admin action failed.');
+      }
+    } catch (err) {
+      console.error('Admin action request failed:', err);
+    } finally {
+      setAdminLoading(false);
+    }
+  };
+
   // Unified Handler for Login & Sign Up
   const handleAuthSubmit = async (e) => {
     e.preventDefault();
@@ -193,7 +246,7 @@ export default function Home() {
       }
     }
   };
-      // Logout
+
   const handleLogout = () => {
     try {
       localStorage.removeItem('nfl_pickem_user');
@@ -344,7 +397,6 @@ export default function Home() {
             <p className="text-xs text-slate-400 mt-0.5">2026 Weekly Pick'em Challenge</p>
           </div>
 
-          {/* Login / Sign Up Toggle Switch */}
           <div className="flex bg-slate-950 p-1 rounded-xl border border-slate-800/80 mb-5">
             <button
               type="button"
@@ -448,7 +500,7 @@ export default function Home() {
   // SCREEN C: MAIN APPLICATION DASHBOARD
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 pb-20 font-sans max-w-lg mx-auto">
-      {/* Top Header - System Slate Status */}
+      {/* Top Header */}
       <header className="sticky top-0 z-50 bg-slate-900/95 backdrop-blur border-b border-slate-800 px-4 py-3 shadow-md">
         <div className="flex justify-between items-center">
           <div>
@@ -494,7 +546,7 @@ export default function Home() {
         </div>
       </header>
 
-      {/* Navigation Tabs (4 Clean Tabs) */}
+      {/* Navigation Tabs (With Conditional Admin Tab) */}
       <div className="flex bg-slate-900 border-b border-slate-800 px-2 pt-2">
         <button
           onClick={() => setActiveTab('slate')}
@@ -542,6 +594,21 @@ export default function Home() {
         >
           Schedule 🗓️
         </button>
+        {user?.isAdmin && (
+          <button
+            onClick={() => {
+              setActiveTab('admin');
+              loadAdminUsers();
+            }}
+            className={`flex-1 py-2.5 text-xs font-bold transition border-b-2 text-center ${
+              activeTab === 'admin'
+                ? 'border-amber-400 text-amber-400'
+                : 'border-transparent text-amber-400/60 hover:text-amber-300'
+            }`}
+          >
+            Admin ⚙️
+          </button>
+        )}
       </div>
 
       {/* TAB 1: WEEKLY PICKS SLATE */}
@@ -984,6 +1051,86 @@ export default function Home() {
               })}
             </div>
           )}
+        </main>
+      )}
+
+      {/* TAB 5: COMMISSIONER ADMIN PANEL */}
+      {activeTab === 'admin' && user?.isAdmin && (
+        <main className="px-3 py-3 space-y-4">
+          <div className="flex justify-between items-center px-1">
+            <div>
+              <h2 className="text-sm font-black text-amber-400 tracking-wide uppercase">League Administration</h2>
+              <p className="text-[11px] text-slate-400">Manage league users, reset PINs, and maintain rosters</p>
+            </div>
+            <button
+              onClick={loadAdminUsers}
+              disabled={adminLoading}
+              className="text-xs px-2.5 py-1 bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-300 rounded-lg transition active:scale-95"
+            >
+              {adminLoading ? 'Refreshing...' : '⟳ Refresh'}
+            </button>
+          </div>
+
+          {adminMessage && (
+            <div className="bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 px-3 py-2 rounded-xl text-xs font-semibold">
+              ✓ {adminMessage}
+            </div>
+          )}
+
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-sm divide-y divide-slate-800/80">
+            <div className="px-4 py-2.5 bg-slate-950/60 text-[10px] font-bold uppercase tracking-wider text-slate-400 flex justify-between">
+              <span>Registered Players ({adminUsers.length})</span>
+              <span>Actions</span>
+            </div>
+
+            {adminUsers.map((u) => {
+              const isCurrentUser = u.id === user.id;
+
+              return (
+                <div key={u.id} className="px-4 py-3 flex items-center justify-between gap-3 text-xs">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-bold text-white truncate">{u.name}</span>
+                      {u.isAdmin && (
+                        <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-amber-400/20 text-amber-400 border border-amber-400/30">
+                          ADMIN
+                        </span>
+                      )}
+                      {u.mustChangePin && (
+                        <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-rose-500/20 text-rose-400 border border-rose-500/30">
+                          PIN PENDING
+                        </span>
+                      )}
+                    </div>
+                    <span className="text-[10px] text-slate-500 font-mono block mt-0.5">
+                      ID: {u.id}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => handleAdminAction('reset_pin', u.id)}
+                      disabled={adminLoading}
+                      className="px-2.5 py-1 text-[10px] font-bold bg-slate-950 hover:bg-slate-800 text-amber-400 border border-amber-400/30 rounded-lg transition active:scale-95"
+                    >
+                      Reset PIN
+                    </button>
+                    {!isCurrentUser && (
+                      <button
+                        type="button"
+                        onClick={() => handleAdminAction('delete_user', u.id)}
+                        disabled={adminLoading}
+                        className="px-2.5 py-1 text-[10px] font-bold bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 rounded-lg transition active:scale-95"
+                      >
+                        Delete
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </main>
       )}
     </div>
