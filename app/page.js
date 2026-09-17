@@ -167,7 +167,7 @@ try {
     if (user?.id) {
       loadSlateAndScores(user.id);
     }
-  }, [activeTab]);
+  }, [activeTab, user?.id]);
 
   const loadFullSchedule = async (targetWeek) => {
     if (fullSchedule.length > 0) return;
@@ -677,7 +677,10 @@ try {
       {/* Navigation Tabs (With Conditional Admin Tab) */}
       <div className="flex bg-slate-900 border-b border-slate-800 px-2 pt-2">
         <button
-          onClick={() => setActiveTab('slate')}
+          onClick={() => {
+            setActiveTab('slate'); //or 'picks', whichever it uses
+            if (user?.id) loadSlateAndSCores(user.id);
+          }}
           className={`flex-1 py-2.5 text-xs font-bold transition border-b-2 text-center ${
             activeTab === 'slate'
               ? 'border-emerald-400 text-emerald-400'
@@ -687,8 +690,11 @@ try {
           Picks
         </button>
         <button
-          onClick={() => setActiveTab('leaderboard')}
-          className={`flex-1 py-2.5 text-xs font-bold transition border-b-2 text-center ${
+          onClick={() => {
+            setActiveTab('leaderboard');
+            if (user?.id) loadSlateAndScores(user.id);
+          }}
+            className={`flex-1 py-2.5 text-xs font-bold transition border-b-2 text-center ${
             activeTab === 'leaderboard'
               ? 'border-emerald-400 text-emerald-400'
               : 'border-transparent text-slate-400 hover:text-slate-200'
