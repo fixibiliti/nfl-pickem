@@ -442,7 +442,7 @@ try {
     }
   };
 
-  const viewingPlayerName = standings.find((s) => s.id === viewingUserId)?.name || user?.name : 'Player';
+  const viewingPlayerName = standings.find((s) => s.id === viewingUserId)?.name || (viewingUserId === user?.id ? user?.name : 'Player');
   const currentDisplayedPicks = allPicks[viewingUserId] || {};
   const sortedStandings = [...standings].sort((a, b) => (b.totalScore || 0) - (a.totalScore || 0));
 
