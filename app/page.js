@@ -141,7 +141,7 @@ try {
      });
    }
   setAllPicks(formattedAllPicks);
-  setViewingUserId(currentUserId);
+  setViewingUserId((prev) => prev || currentUserId);
 
   const mySavedPicks = formattedAllPicks[currentUserId] || {};
   if (Object.keys(mySavedPicks).length === 5) {
