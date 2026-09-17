@@ -108,7 +108,9 @@ try {
 
 const loadSlateAndScores = async (currentUserId) => {
 try {
-  const res = await fetch(`/api/slate?userId=${currentUserId || ''}`);
+  const res = await fetch(`/api/slate?userId=${currentUserId || ''}`, {
+  cache: 'no-store'
+});
   const data = await res.json();
 
   const userStandings = data.standings || [];
@@ -159,6 +161,13 @@ try {
       console.error('Failed to load history:', err);
     }
   };
+
+// 3. Re-fetch slate, picks, and standings whenever switching tabs
+  useEffect(() => {
+    if (user?.id) {
+      loadSlateAndScores(user.id);
+    }
+  }, [activeTab]);
 
   const loadFullSchedule = async (targetWeek) => {
     if (fullSchedule.length > 0) return;
