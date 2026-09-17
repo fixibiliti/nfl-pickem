@@ -442,7 +442,7 @@ try {
     }
   };
 
-  const viewingPlayerName = standings.find((s) => s.id === viewingUserId)?.name || user?.name;
+  const viewingPlayerName = standings.find((s) => s.id === viewingUserId)?.name || user?.name : 'Player';
   const currentDisplayedPicks = allPicks[viewingUserId] || {};
   const sortedStandings = [...standings].sort((a, b) => (b.totalScore || 0) - (a.totalScore || 0));
 
@@ -757,23 +757,28 @@ try {
             </span>
           </div>
 
-          {viewingUserId !== user.id && (
-            <div className="bg-slate-900/80 border border-slate-800 p-2.5 rounded-xl text-xs text-slate-400 flex items-center justify-between px-3">
-              <span>
-                Viewing <strong>{viewingPlayerName}</strong>'s picks
-              </span>
+          {viewingUserId && viewingUserId !== user?.id && (
+            <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3 flex items-center justify-between gap-2">
+              <div className="flex flex-col">
+                <div className="text-[10px] font-bold text-amber-400 uppercase tracking-wider">
+                  Inspecting Player
+                </div>
+                <div className="text-sm font-black text-white">
+                  {viewingPlayerName || 'Another Player'}
+                </div>
+              </div>
               <div className="flex items-center gap-2">
                 {!isScheduleLocked && (
-                <span className="text-rose-400 font-semibold text-[10px] bg-rose-500/10 border border-rose-500/30 px-2 py-0.5 rounded">
-                     🔒 Hidden Until Kickoff
-                </span>
+                  <span className="text-rose-400 font-semibold text-[10px] bg-rose-500/10 border border-rose-500/30 px-2 py-1 rounded">
+                    🔒 Hidden Until Kickoff
+                  </span>
                 )}
                 <button
                   type="button"
-                  onClick={() => setViewingUserId(user.id)}
-                  className="text-emerald-400 font-bold hover:underline text-[11px]"
+                  onClick={() => setViewingUserId(user?.id)}
+                  className="text-xs font-bold bg-amber-400 hover:bg-amber-300 text-slate-950 px-2.5 py-1 rounded-lg transition active:scale-95"
                 >
-                  Back to Mine
+                  ← Back to My Picks
                 </button>
               </div>
             </div>
