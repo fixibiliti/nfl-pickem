@@ -11,22 +11,46 @@ export default function TimeMachineBar() {
   });
   const [loading, setLoading] = useState(true);
 
-  // 1. Check if the currently logged-in player is an admin
-  useEffect(() => {
+  // Check admin status from local storage
+  const checkAdminStatus = () => {
     try {
       const stored = localStorage.getItem('nfl_pickem_user');
       if (stored) {
         const parsed = JSON.parse(stored);
-        if (parsed?.isAdmin === true) {
-          setIsAdmin(true);
-        }
+        // User is admin if explicitly flagged OR is the master user_1 / Ryan
+        const adminCheck = Boolean(
+          parsed.isAdmin === true || 
+          parsed.id === 'user_1' || 
+          parsed.name?.toLowerCase() === 'ryan'
+        );
+        setIsAdmin(adminCheck);
+        return adminCheck;
       }
     } catch (e) {
       console.error('Failed to parse admin session for time machine:', e);
     }
+    setIsAdmin(false);
+    return false;
+  };
+
+  useEffect(() => {
+    const hasAdmin = checkAdminStatus();
+    if (hasAdmin) {
+      refreshClockStatus();
+    } else {
+      setLoading(false);
+    }
+
+    // Re-check if login/logout happens
+    const handleStorageChange = () => {
+      const currentlyAdmin = checkAdminStatus();
+      if (currentlyAdmin) refreshClockStatus();
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
   }, []);
 
-  // 2. Fetch the virtual clock status only if admin access is confirmed
   const refreshClockStatus = async () => {
     try {
       const res = await fetch('/api/admin/time-machine');
@@ -41,13 +65,6 @@ export default function TimeMachineBar() {
     }
   };
 
-  useEffect(() => {
-    if (isAdmin) {
-      refreshClockStatus();
-    }
-  }, [isAdmin]);
-
-  // Jump to a specific preset time
   const handleSetTime = async (timestamp) => {
     setLoading(true);
     try {
@@ -63,7 +80,6 @@ export default function TimeMachineBar() {
     }
   };
 
-  // Reset back to actual system time
   const handleReset = async () => {
     setLoading(true);
     try {
@@ -79,7 +95,7 @@ export default function TimeMachineBar() {
     }
   };
 
-  // Render nothing if user is not an admin
+  // Strictly block rendering if not an admin
   if (!isAdmin) {
     return null;
   }
