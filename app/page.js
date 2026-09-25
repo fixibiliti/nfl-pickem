@@ -1,6 +1,8 @@
 'use client';
 import { useState, useEffect } from 'react';
 
+import TimeMachineBar from '@/components/admin/TimeMachineBar';
+
 export default function Home() {
   const [user, setUser] = useState(null);
   const [name, setName] = useState('');
@@ -1466,6 +1468,10 @@ try {
           </div>
         </div>
       )}
+
+      {/* Time Machine: Strictly rendered only for Admins */}
+      {user?.isAdmin && <TimeMachineBar />}
+      
     </div>
   );
 }

@@ -3,53 +3,12 @@
 import React, { useState, useEffect } from 'react';
 
 export default function TimeMachineBar() {
-  const [isAdmin, setIsAdmin] = useState(false);
   const [data, setData] = useState({
     effectiveTime: null,
     isOverridden: false,
     presets: []
   });
   const [loading, setLoading] = useState(true);
-
-  // Check admin status from local storage
-  const checkAdminStatus = () => {
-    try {
-      const stored = localStorage.getItem('nfl_pickem_user');
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        // User is admin if explicitly flagged OR is the master user_1 / Ryan
-        const adminCheck = Boolean(
-          parsed.isAdmin === true || 
-          parsed.id === 'user_1' || 
-          parsed.name?.toLowerCase() === 'ryan'
-        );
-        setIsAdmin(adminCheck);
-        return adminCheck;
-      }
-    } catch (e) {
-      console.error('Failed to parse admin session for time machine:', e);
-    }
-    setIsAdmin(false);
-    return false;
-  };
-
-  useEffect(() => {
-    const hasAdmin = checkAdminStatus();
-    if (hasAdmin) {
-      refreshClockStatus();
-    } else {
-      setLoading(false);
-    }
-
-    // Re-check if login/logout happens
-    const handleStorageChange = () => {
-      const currentlyAdmin = checkAdminStatus();
-      if (currentlyAdmin) refreshClockStatus();
-    };
-
-    window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
-  }, []);
 
   const refreshClockStatus = async () => {
     try {
@@ -64,6 +23,10 @@ export default function TimeMachineBar() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    refreshClockStatus();
+  }, []);
 
   const handleSetTime = async (timestamp) => {
     setLoading(true);
@@ -94,11 +57,6 @@ export default function TimeMachineBar() {
       setLoading(false);
     }
   };
-
-  // Strictly block rendering if not an admin
-  if (!isAdmin) {
-    return null;
-  }
 
   if (loading && !data.effectiveTime) {
     return null;
