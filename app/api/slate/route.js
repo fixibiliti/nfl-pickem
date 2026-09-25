@@ -73,14 +73,25 @@ export async function GET(request) {
         }
       }
     });
-
-    return NextResponse.json({
-      slate,
-      week: weekNumber,
-      standings: standingsData,
-      picks: sanitizedPicks,
-      isLocked
+      
+      // Attach hasSubmitted directly to each player in standings
+      const enrichedStandings = standingsData.map((player) => {
+      const picks = rawPicks[player.id];
+      const hasSubmitted = Array.isArray(picks) && picks.length === 5;
+      return {
+        ...player,
+        hasSubmitted,
+      };
     });
+
+      return NextResponse.json({
+        slate,
+        week: weekNumber,
+        standings: enrichedStandings,
+        picks: sanitizedPicks,
+        isLocked,
+    });
+
   } catch (err) {
     console.error('Slate fetch error:', err);
     return NextResponse.json({ error: err.message }, { status: 500 });

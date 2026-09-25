@@ -969,8 +969,7 @@ try {
             {sortedStandings.map((player, index) => {
               const isCurrentUser = player.id === user.id;
               const isViewingThisPlayer = player.id === viewingUserId;
-              const playerPicksCount = allPicks[player.id] ? Object.keys(allPicks[player.id]).length : 0;
-              const isPlayerSubmitted = playerPicksCount === 5;
+              const isPlayerSubmitted = Boolean(player.hasSubmitted);
 
               const rank = index + 1;
               const rankBadgeColor =
