@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 
 export default function TimeMachineBar() {
+  const [isAdmin, setIsAdmin] = useState(false);
   const [data, setData] = useState({
     effectiveTime: null,
     isOverridden: false,
@@ -10,7 +11,22 @@ export default function TimeMachineBar() {
   });
   const [loading, setLoading] = useState(true);
 
-  // Fetch the current clock status and dynamic wave presets
+  // 1. Check if the currently logged-in player is an admin
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('nfl_pickem_user');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (parsed?.isAdmin === true) {
+          setIsAdmin(true);
+        }
+      }
+    } catch (e) {
+      console.error('Failed to parse admin session for time machine:', e);
+    }
+  }, []);
+
+  // 2. Fetch the virtual clock status only if admin access is confirmed
   const refreshClockStatus = async () => {
     try {
       const res = await fetch('/api/admin/time-machine');
@@ -26,8 +42,10 @@ export default function TimeMachineBar() {
   };
 
   useEffect(() => {
-    refreshClockStatus();
-  }, []);
+    if (isAdmin) {
+      refreshClockStatus();
+    }
+  }, [isAdmin]);
 
   // Jump to a specific preset time
   const handleSetTime = async (timestamp) => {
@@ -38,7 +56,6 @@ export default function TimeMachineBar() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ timestamp }),
       });
-      // Reload page to force Server and Client components to re-evaluate with the new time
       window.location.reload();
     } catch (err) {
       console.error('Failed to update virtual clock:', err);
@@ -61,6 +78,11 @@ export default function TimeMachineBar() {
       setLoading(false);
     }
   };
+
+  // Render nothing if user is not an admin
+  if (!isAdmin) {
+    return null;
+  }
 
   if (loading && !data.effectiveTime) {
     return null;
