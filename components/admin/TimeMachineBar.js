@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 
-export default function TimeMachineBar() {
+export default function TimeMachineBar({ currentWeek = 3 }) {
   const [data, setData] = useState({
     effectiveTime: null,
     isOverridden: false,
@@ -13,7 +13,7 @@ export default function TimeMachineBar() {
 
   const refreshClockStatus = async () => {
     try {
-      const res = await fetch('/api/admin/time-machine');
+      const res = await fetch(`/api/admin/time-machine?week=${currentWeek}`);
       if (res.ok) {
         const json = await res.json();
         setData(json);
@@ -27,7 +27,7 @@ export default function TimeMachineBar() {
 
   useEffect(() => {
     refreshClockStatus();
-  }, []);
+  }, [currentWeek]);
 
   const handleSetTime = async (timestamp) => {
     setLoading(true);
@@ -74,7 +74,6 @@ export default function TimeMachineBar() {
       })
     : '';
 
-  // Collapsed Minimalist Pill
   if (isCollapsed) {
     return (
       <div
@@ -108,7 +107,6 @@ export default function TimeMachineBar() {
     );
   }
 
-  // Expanded Full Bar
   return (
     <div
       style={{

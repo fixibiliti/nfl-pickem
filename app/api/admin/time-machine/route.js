@@ -1,22 +1,29 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { VIRTUAL_CLOCK_COOKIE, generateDynamicPresets } from '@/lib/clock';
+import { readData } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
-    const week = searchParams.get('week') || '2';
+    
+    // 1. Read week from query string, or fall back to saved settings/slate
+    let week = searchParams.get('week');
+    if (!week) {
+      const settings = (await readData('settings.json')) || {};
+      week = String(settings.currentWeek || '3');
+    }
 
-    // 1. Check current virtual clock status from cookie
+    // 2. Check virtual clock override cookie
     const cookieStore = await cookies();
     const rawOverride = cookieStore.get(VIRTUAL_CLOCK_COOKIE)?.value || null;
     const isOverridden = Boolean(rawOverride && !isNaN(Date.parse(rawOverride)));
     const now = new Date();
     const effectiveTime = isOverridden ? new Date(rawOverride).toISOString() : now.toISOString();
 
-    // 2. Fetch the slate to calculate dynamic presets
+    // 3. Fetch the schedule for the matching week so milestones match the current games
     const espnRes = await fetch(
       `https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?dates=2026&seasontype=2&week=${week}`,
       { cache: 'no-store' }
@@ -65,10 +72,9 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Invalid timestamp format' }, { status: 400 });
     }
 
-    // Set cookie on root path so both admin and app pick logic have access
     cookieStore.set(VIRTUAL_CLOCK_COOKIE, parsed.toISOString(), {
       path: '/',
-      httpOnly: false, // Allows UI components to inspect if desired
+      httpOnly: false,
       sameSite: 'lax',
     });
 

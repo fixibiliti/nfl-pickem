@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { readData, writeData } from '@/lib/db';
 import { fetchCurrentNFLWeek, generateWeeklySlate } from '@/lib/nfl';
+import { getEffectiveDate, isGameLocked } from '@/lib/clock';
 
 export const dynamic = 'force-dynamic';
 
@@ -46,36 +47,58 @@ export async function GET(request) {
       }
     }
 
-    const now = Date.now();
+    // 2. Use Virtual Clock / Effective Date
+    const effectiveNow = await getEffectiveDate();
+    const effectiveMs = effectiveNow.getTime();
 
-    // 2. Calculate earliest kickoff
+    // Calculate earliest kickoff
     const kickoffTimestamps = slate
       .map((g) => (g && g.date ? new Date(g.date).getTime() : NaN))
       .filter((t) => !isNaN(t));
 
     const earliestKickoff = kickoffTimestamps.length > 0 ? Math.min(...kickoffTimestamps) : 0;
-    const isLocked = earliestKickoff > 0 && now >= earliestKickoff;
+    const isLocked = earliestKickoff > 0 && effectiveMs >= earliestKickoff;
 
-    // 3. Sanitize Picks: Hide opponent picks if slate is still open
+    // Create a kickoff lookup map by gameId for per-game reveals
+    const kickoffMap = {};
+    slate.forEach((g) => {
+      if (g.gameId && g.date) {
+        kickoffMap[g.gameId] = g.date;
+      }
+    });
+
+    // 3. Sanitize Picks: Reveal individual picks as each game kicks off
     const sanitizedPicks = {};
 
     Object.entries(rawPicks).forEach(([uid, userPicks]) => {
-      if (isLocked) {
+      const isOwner = requestingUserId && String(requestingUserId) === String(uid);
+
+      if (isOwner) {
         sanitizedPicks[uid] = userPicks;
       } else {
-        if (uid === requestingUserId) {
-          sanitizedPicks[uid] = userPicks;
+        // For opponent picks, reveal if that individual game has kicked off
+        if (Array.isArray(userPicks)) {
+          sanitizedPicks[uid] = userPicks.map((p) => {
+            const gameKickoff = kickoffMap[p.gameId];
+            const gameHasKickedOff = gameKickoff ? isGameLocked(gameKickoff, effectiveNow) : false;
+
+            if (gameHasKickedOff) {
+              return p; // Reveal actual pick
+            }
+            return {
+              gameId: p.gameId,
+              selectedTeamId: null, // Hidden until game kickoff
+              hidden: true
+            };
+          });
         } else {
-          sanitizedPicks[uid] =
-            Array.isArray(userPicks) && userPicks.length === 5
-              ? [{ hidden: true }, { hidden: true }, { hidden: true }, { hidden: true }, { hidden: true }]
-              : [];
+          sanitizedPicks[uid] = [];
         }
       }
     });
-      
-      // Attach hasSubmitted directly to each player in standings
-      const enrichedStandings = standingsData.map((player) => {
+
+    // Attach hasSubmitted directly to each player in standings
+    const enrichedStandings = standingsData.map((player) => {
       const picks = rawPicks[player.id];
       const hasSubmitted = Array.isArray(picks) && picks.length === 5;
       return {
@@ -84,12 +107,13 @@ export async function GET(request) {
       };
     });
 
-      return NextResponse.json({
-        slate,
-        week: weekNumber,
-        standings: enrichedStandings,
-        picks: sanitizedPicks,
-        isLocked,
+    return NextResponse.json({
+      slate,
+      week: weekNumber,
+      standings: enrichedStandings,
+      picks: sanitizedPicks,
+      isLocked,
+      effectiveTime: effectiveNow.toISOString(),
     });
 
   } catch (err) {

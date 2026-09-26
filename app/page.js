@@ -34,6 +34,7 @@ export default function Home() {
   const [adminMessage, setAdminMessage] = useState('');
   const [adminPasscode, setAdminPasscode] = useState('');
   const [newPasscode, setNewPasscode] = useState('');
+  const [effectiveServerTime, setEffectiveServerTime] = useState(null);
 
   // Change PIN State
   const [showChangePinModal, setShowChangePinModal] = useState(false);
@@ -53,11 +54,11 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
 
   // 1. Dynamic Earliest-Kickoff Countdown & Global Schedule Lockout
-  useEffect(() => {
+useEffect(() => {
     if (!slate || slate.length === 0) return;
 
     const updateCountdown = () => {
-      const now = new Date().getTime();
+      const now = effectiveServerTime ? new Date(effectiveServerTime).getTime() : new Date().getTime();
       const kickoffTimestamps = slate
         .map((g) => new Date(g.date).getTime())
         .filter((t) => !isNaN(t));
@@ -89,7 +90,7 @@ export default function Home() {
     updateCountdown();
     const interval = setInterval(updateCountdown, 1000);
     return () => clearInterval(interval);
-  }, [slate]);
+  }, [slate, effectiveServerTime]);
 
   // 2. Persistent Login Check with Server Verification
 useEffect(() => {
@@ -128,6 +129,8 @@ try {
   setSlate(data.slate || []);
   setStandings(userStandings);
   setWeek(data.week || 2);
+  if (data.effectiveTime) setEffectiveServerTime(data.effectiveTime);
+  if (data.isLocked !== undefined) setIsScheduleLocked(data.isLocked);
 
   const formattedAllPicks = {};
    if (data.picks) {
@@ -1470,7 +1473,7 @@ try {
       )}
 
       {/* Time Machine: Strictly rendered only for Admins */}
-      {user?.isAdmin && <TimeMachineBar />}
+      {user?.isAdmin && <TimeMachineBar currentWeek={week} />}
       
     </div>
   );
