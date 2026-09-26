@@ -615,7 +615,7 @@ try {
 
   // SCREEN C: MAIN APPLICATION DASHBOARD
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 pb-20 font-sans max-w-lg mx-auto">
+    <div className="min-h-screen bg-slate-950 text-slate-100 pb-36 font-sans max-w-lg mx-auto">
       {/* Top Header */}
       <header className="sticky top-0 z-50 bg-slate-900/95 backdrop-blur border-b border-slate-800 px-4 py-3 shadow-md">
        {/* Top Header Row: 3-column layout */}

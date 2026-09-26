@@ -9,6 +9,7 @@ export default function TimeMachineBar() {
     presets: []
   });
   const [loading, setLoading] = useState(true);
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
   const refreshClockStatus = async () => {
     try {
@@ -73,54 +74,93 @@ export default function TimeMachineBar() {
       })
     : '';
 
+  // Collapsed Minimalist Pill
+  if (isCollapsed) {
+    return (
+      <div
+        style={{
+          position: 'fixed',
+          bottom: '8px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          zIndex: 9999,
+          backgroundColor: '#18181b',
+          border: data.isOverridden ? '2px solid #f59e0b' : '1px solid #3f3f46',
+          borderRadius: '20px',
+          padding: '4px 12px',
+          color: '#f4f4f5',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.6)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          fontFamily: 'monospace',
+          fontSize: '11px',
+          cursor: 'pointer',
+        }}
+        onClick={() => setIsCollapsed(false)}
+      >
+        <span>{data.isOverridden ? '⏳' : '🟢'}</span>
+        <span style={{ color: data.isOverridden ? '#fbbf24' : '#4ade80', fontWeight: 'bold' }}>
+          {data.isOverridden ? 'VIRTUAL' : 'LIVE'}: {formattedTime}
+        </span>
+        <span style={{ color: '#a1a1aa' }}>▲ Open</span>
+      </div>
+    );
+  }
+
+  // Expanded Full Bar
   return (
     <div
       style={{
         position: 'fixed',
-        bottom: '16px',
+        bottom: '12px',
         left: '50%',
         transform: 'translateX(-50%)',
         zIndex: 9999,
         backgroundColor: '#18181b',
         border: data.isOverridden ? '2px solid #f59e0b' : '1px solid #3f3f46',
         borderRadius: '8px',
-        padding: '10px 16px',
+        padding: '8px 12px',
         color: '#f4f4f5',
-        boxShadow: '0 10px 25px rgba(0,0,0,0.5)',
+        boxShadow: '0 10px 25px rgba(0,0,0,0.7)',
         display: 'flex',
         alignItems: 'center',
-        gap: '12px',
+        gap: '10px',
         fontFamily: 'monospace',
-        fontSize: '13px',
+        fontSize: '12px',
+        maxWidth: '96vw',
+        overflowX: 'auto',
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap' }}>
         <span>{data.isOverridden ? '⏳' : '🟢'}</span>
         <strong style={{ color: data.isOverridden ? '#fbbf24' : '#4ade80' }}>
-          {data.isOverridden ? 'VIRTUAL CLOCK' : 'SYSTEM CLOCK'}:
+          {data.isOverridden ? 'VIRTUAL' : 'LIVE'}:
         </strong>
-        <span>{formattedTime}</span>
+        <span style={{ color: '#e4e4e7' }}>{formattedTime}</span>
       </div>
 
-      <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-        {data.presets && data.presets.map((preset) => (
-          <button
-            key={preset.label}
-            onClick={() => handleSetTime(preset.timestamp)}
-            title={preset.description}
-            style={{
-              backgroundColor: '#27272a',
-              border: '1px solid #52525b',
-              color: '#fafafa',
-              padding: '4px 8px',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              fontSize: '11px',
-            }}
-          >
-            {preset.label}
-          </button>
-        ))}
+      <div style={{ display: 'flex', gap: '5px', alignItems: 'center' }}>
+        {data.presets &&
+          data.presets.map((preset) => (
+            <button
+              key={preset.label}
+              onClick={() => handleSetTime(preset.timestamp)}
+              title={preset.description}
+              style={{
+                backgroundColor: '#27272a',
+                border: '1px solid #52525b',
+                color: '#fafafa',
+                padding: '4px 6px',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontSize: '10px',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {preset.label}
+            </button>
+          ))}
 
         {data.isOverridden && (
           <button
@@ -132,13 +172,30 @@ export default function TimeMachineBar() {
               padding: '4px 8px',
               borderRadius: '4px',
               cursor: 'pointer',
-              fontSize: '11px',
+              fontSize: '10px',
               fontWeight: 'bold',
+              whiteSpace: 'nowrap',
             }}
           >
             Reset
           </button>
         )}
+
+        <button
+          onClick={() => setIsCollapsed(true)}
+          title="Minimize time bar"
+          style={{
+            backgroundColor: 'transparent',
+            border: 'none',
+            color: '#a1a1aa',
+            padding: '2px 4px',
+            cursor: 'pointer',
+            fontSize: '11px',
+            marginLeft: '4px',
+          }}
+        >
+          ▼
+        </button>
       </div>
     </div>
   );
