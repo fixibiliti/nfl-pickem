@@ -3,6 +3,8 @@ import { useState, useEffect } from 'react';
 
 import TimeMachineBar from '@/components/admin/TimeMachineBar';
 
+import LiveStandingsWidget from '@/components/LiveStandingsWidget';
+
 export default function Home() {
   const [user, setUser] = useState(null);
   const [name, setName] = useState('');
@@ -753,6 +755,9 @@ try {
       {/* TAB 1: WEEKLY PICKS SLATE */}
       {activeTab === 'slate' && (
         <main className="px-3 py-3 space-y-3">
+          {/* Live Standings At-A-Glance */}
+          <LiveStandingsWidget week={week} year={2026} />
+
           <div className="flex justify-between items-center px-1">
             <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
               Week {week} Slate • <span className="text-emerald-400">{viewingPlayerName}'s Picks</span>
