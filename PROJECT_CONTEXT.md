@@ -22,3 +22,19 @@ A public NFL 5-Pick'em web application where users select 5 games each week agai
 ## Next Milestone: Option A (Terminal Scripts Sandbox)
 - Build Node.js CLI scripts in `scripts/` to seed test users, simulate picks, and test time-based locking without waiting for live NFL kickoffs.
 - Future expansion: College Football Pick'em app using this same architectural foundation.
+
+## Active Milestone Status (Time Machine Completed)
+- **Virtual Clock**: Fully integrated via cookie (`x-virtual-clock-override`) in `lib/clock.js`.
+- **Dynamic Lockouts**:
+  - Pre-kickoff: Opponent picks masked (`hidden: true`).
+  - Active wave: Post-kickoff games reveal picks per-game while future matchups remain hidden.
+  - Submissions locked once the earliest kickoff passes.
+- **Admin Control UI**:
+  - `components/admin/TimeMachineBar.js` mounted exclusively for admins (`user?.isAdmin`).
+  - Dynamic preset generation matching active week (`currentWeek`).
+  - Compact multi-tier layout with collapse/expand pill toggle.
+
+## Next Feature Goal: Live Standings & Score Sync
+- Connect ESPN live scoreboard endpoints to update game scores (`isCompleted`, `winnerId`, scores).
+- Automatically calculate weekly player points for correct picks.
+- Live-update season standings and display green checkmarks / winner indicators on cards.
