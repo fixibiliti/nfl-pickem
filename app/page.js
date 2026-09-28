@@ -832,7 +832,7 @@ try {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="relative grid grid-cols-2 gap-3">
                     {/* AWAY TEAM */}
                     <button
                       type="button"
@@ -874,6 +874,22 @@ try {
                         {game.awayTeam.name} (Away)
                       </span>
                     </button>
+
+                    {/* CENTER ODDS BADGE (Spread & O/U) */}
+                    {(game.odds?.spread || game.odds?.overUnder) && (
+                      <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10 pointer-events-none flex flex-col items-center justify-center bg-slate-950/90 border border-slate-700/80 px-2 py-1 rounded-lg shadow-lg backdrop-blur-sm">
+                        {game.odds?.spread && (
+                          <span className="text-[10px] font-black text-amber-400 tracking-tight whitespace-nowrap">
+                            {game.odds.spread}
+                          </span>
+                        )}
+                        {game.odds?.overUnder && (
+                          <span className="text-[8px] font-bold text-slate-400 tracking-tight whitespace-nowrap">
+                            {game.odds.overUnder}
+                          </span>
+                        )}
+                      </div>
+                    )}
 
                     {/* HOME TEAM */}
                     <button
