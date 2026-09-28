@@ -55,8 +55,8 @@ export default function Home() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // 1. Dynamic Earliest-Kickoff Countdown & Global Schedule Lockout
-useEffect(() => {
+// 1. Dynamic Earliest-Kickoff Countdown & Global Schedule Lockout (1h Pre-Game)
+  useEffect(() => {
     if (!slate || slate.length === 0) return;
 
     const updateCountdown = () => {
@@ -68,7 +68,9 @@ useEffect(() => {
       if (kickoffTimestamps.length === 0) return;
 
       const earliestKickoff = Math.min(...kickoffTimestamps);
-      const diff = earliestKickoff - now;
+      const ONE_HOUR_MS = 60 * 60 * 1000;
+      const lockTarget = earliestKickoff - ONE_HOUR_MS;
+      const diff = lockTarget - now;
 
       if (diff <= 0) {
         setIsScheduleLocked(true);

@@ -82,7 +82,7 @@ export async function GET(request) {
       console.error('Failed to attach live odds to slate:', e);
     }
 
-    // 2. Use Virtual Clock / Effective Date
+   // 2. Use Virtual Clock / Effective Date
     const effectiveNow = await getEffectiveDate();
     const effectiveMs = effectiveNow.getTime();
 
@@ -92,7 +92,11 @@ export async function GET(request) {
       .filter((t) => !isNaN(t));
 
     const earliestKickoff = kickoffTimestamps.length > 0 ? Math.min(...kickoffTimestamps) : 0;
-    const isLocked = earliestKickoff > 0 && effectiveMs >= earliestKickoff;
+
+    // Lock threshold is 1 hour (3,600,000 ms) before the earliest kickoff
+    const ONE_HOUR_MS = 60 * 60 * 1000;
+    const lockThreshold = earliestKickoff > 0 ? earliestKickoff - ONE_HOUR_MS : 0;
+    const isLocked = lockThreshold > 0 && effectiveMs >= lockThreshold;
 
     // Create a kickoff lookup map by gameId for per-game reveals
     const kickoffMap = {};
