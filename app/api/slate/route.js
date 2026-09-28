@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { readData, writeData } from '@/lib/db';
 import { fetchCurrentNFLWeek, generateWeeklySlate } from '@/lib/nfl';
+import { getLiveScores } from '@/lib/espn';
 import { getEffectiveDate, isGameLocked } from '@/lib/clock';
 
 export const dynamic = 'force-dynamic';
@@ -46,6 +47,25 @@ export async function GET(request) {
         console.error('Failed to auto-generate slate:', genErr);
       }
     }
+
+    // 1b. Fetch live odds/scores and attach to the current slate games
+      try {
+        const liveData = await getLiveScores({ week: weekNumber, year: 2026 });
+        const liveGameMap = {};
+        (liveData.games || []).forEach((g) => {
+          liveGameMap[g.id] = g;
+      });
+
+        slate = slate.map((game) => {
+          const liveGame = liveGameMap[game.gameId];
+          return {
+            ...game,
+            odds: liveGame?.odds || game.odds || null,
+          };
+        });
+      } catch (e) {
+        console.error('Failed to attach live odds to slate:', e);
+      }
 
     // 2. Use Virtual Clock / Effective Date
     const effectiveNow = await getEffectiveDate();
