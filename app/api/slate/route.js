@@ -49,23 +49,23 @@ export async function GET(request) {
     }
 
     // 1b. Fetch live odds/scores and attach to the current slate games
-      try {
-        const liveData = await getLiveScores({ week: weekNumber, year: 2026 });
-        const liveGameMap = {};
-        (liveData.games || []).forEach((g) => {
-          liveGameMap[g.id] = g;
+    try {
+      const liveData = await getLiveScores({ week: weekNumber, seasonType: 2 });
+      const liveGameMap = {};
+      (liveData.games || []).forEach((g) => {
+        if (g.id) liveGameMap[String(g.id)] = g;
       });
 
-        slate = slate.map((game) => {
-          const liveGame = liveGameMap[game.gameId];
-          return {
-            ...game,
-            odds: liveGame?.odds || game.odds || null,
-          };
-        });
-      } catch (e) {
-        console.error('Failed to attach live odds to slate:', e);
-      }
+      slate = slate.map((game) => {
+        const liveGame = liveGameMap[String(game.gameId)];
+        return {
+          ...game,
+          odds: liveGame?.odds || game.odds || null,
+        };
+      });
+    } catch (e) {
+      console.error('Failed to attach live odds to slate:', e);
+    }
 
     // 2. Use Virtual Clock / Effective Date
     const effectiveNow = await getEffectiveDate();
