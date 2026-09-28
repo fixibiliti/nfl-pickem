@@ -1157,14 +1157,22 @@ try {
                     }`}
                   >
                     <div className="flex justify-between items-center text-[10px] font-medium text-slate-400 border-b border-slate-800/60 pb-1.5 mb-2">
-                      <span className="text-slate-300 font-semibold">
-                        {game.dayOfWeek} {new Date(game.date).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit' })} • {new Date(game.date).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-slate-300 font-semibold">
+                          {game.dayOfWeek} {new Date(game.date).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit' })} • {new Date(game.date).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                        </span>
                         {game.broadcast && (
-                          <span className="ml-1.5 px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 font-mono text-[9px]">
+                          <span className="px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 font-mono text-[9px]">
                             {game.broadcast}
                           </span>
                         )}
-                      </span>
+                        {/* Game Odds Pill */}
+                        {(game.odds?.spread || game.odds?.overUnder) && (
+                          <span className="px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/30 font-bold text-[9px]">
+                            {game.odds.spread} {game.odds.overUnder ? `• ${game.odds.overUnder}` : ''}
+                          </span>
+                        )}
+                      </div>
 
                       <div className="flex items-center gap-1.5">
                         {isPickemGame && (
