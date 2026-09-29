@@ -30,11 +30,23 @@ export async function GET(request) {
     // 3. Clear the active picks for the new week
     await writeData('picks.json', {});
 
-    // 4. Generate the new week's slate using the structured picker
-    const espnData = await fetchCurrentNFLWeek();
-    const events = espnData?.events || [];
+    // 4. Advance to the next week
+    const nextWeekNumber = finishedWeek + 1;
+
+    // Fetch the exact slate for nextWeekNumber from ESPN
+    const res = await fetch(
+      `https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?dates=2026&seasontype=2&week=${nextWeekNumber}`,
+      { cache: 'no-store' }
+    );
+
+    let events = [];
+    if (res.ok) {
+      const data = await res.json();
+      events = data.events || [];
+    }
+
+    // Generate 5 structured games for the upcoming week
     const newSlate = selectWeeklyGames(events);
-    const nextWeekNumber = espnData?.week?.number || finishedWeek + 1;
 
     await writeData('current_slate.json', {
       week: nextWeekNumber,
