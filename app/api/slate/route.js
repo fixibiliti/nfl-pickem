@@ -60,7 +60,7 @@ export async function GET(request) {
         const liveGame = liveGameMap[String(game.gameId)];
         let odds = liveGame?.odds || game.odds || null;
 
-        // If no odds from ESPN, generate a deterministic line based on gameId
+        // Fallback odds logic if ESPN has no posted line
         if (!odds || (!odds.spread && !odds.overUnder)) {
           const rawId = String(game.gameId || '100');
           const lastDigit = parseInt(rawId.slice(-1), 10) || 3;
@@ -73,8 +73,27 @@ export async function GET(request) {
           };
         }
 
+        // Merge live status & scores from ESPN feed
+        const isCompleted = liveGame ? liveGame.isCompleted : game.isCompleted;
+        const homeScore = liveGame && liveGame.home?.score !== null && liveGame.home?.score !== undefined 
+          ? String(liveGame.home.score) 
+          : game.homeScore;
+        const awayScore = liveGame && liveGame.away?.score !== null && liveGame.away?.score !== undefined 
+          ? String(liveGame.away.score) 
+          : game.awayScore;
+        let winnerId = game.winnerId;
+
+        if (liveGame && isCompleted) {
+          if (liveGame.home?.winner) winnerId = game.homeTeam?.id;
+          else if (liveGame.away?.winner) winnerId = game.awayTeam?.id;
+        }
+
         return {
           ...game,
+          isCompleted,
+          homeScore,
+          awayScore,
+          winnerId,
           odds,
         };
       });

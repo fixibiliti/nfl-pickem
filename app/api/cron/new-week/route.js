@@ -1,20 +1,54 @@
 import { NextResponse } from 'next/server';
 import { fetchCurrentNFLWeek, generateWeeklySlate } from '@/lib/nfl';
-import { writeData } from '@/lib/db';
+import { readData, writeData } from '@/lib/db';
 
-export async function GET() {
+export const dynamic = 'force-dynamic';
+
+export async function GET(request) {
   try {
+    // 1. Fetch current slate, standings, and picks
+    const currentSlate = await readData('current_slate.json');
+    const standings = (await readData('standings.json')) || [];
+    const picks = (await readData('picks.json')) || {};
+    const history = (await readData('history.json')) || [];
+
+    const finishedWeek = currentSlate?.week || 1;
+
+    // 2. Archive completed week if not already archived
+    const alreadyArchived = history.some((h) => h.week === finishedWeek);
+    if (!alreadyArchived && currentSlate?.games) {
+      history.push({
+        week: finishedWeek,
+        archivedAt: new Date().toISOString(),
+        slate: currentSlate.games,
+        standingsSnapshot: standings,
+        picksSnapshot: picks,
+      });
+      await writeData('history.json', history);
+    }
+
+    // 3. Clear the active picks for the new week
+    await writeData('picks.json', {});
+
+    // 4. Generate the new week's slate
     const espnData = await fetchCurrentNFLWeek();
     const newSlate = generateWeeklySlate(espnData);
-    
+    const nextWeekNumber = espnData.week?.number || finishedWeek + 1;
+
     await writeData('current_slate.json', {
-      week: espnData.week?.number || 1,
+      week: nextWeekNumber,
       createdAt: new Date().toISOString(),
-      games: newSlate
+      games: newSlate,
     });
 
-    return NextResponse.json({ success: true, count: newSlate.length, week: espnData.week?.number });
+    return NextResponse.json({
+      success: true,
+      message: `Rolled over from Week ${finishedWeek} to Week ${nextWeekNumber}`,
+      week: nextWeekNumber,
+      gamesCount: newSlate.length,
+    });
   } catch (err) {
+    console.error('Cron new-week rollover failed:', err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
