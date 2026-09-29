@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { fetchCurrentNFLWeek, generateWeeklySlate } from '@/lib/nfl';
+import { fetchCurrentNFLWeek, selectWeeklyGames } from '@/lib/nfl';
 import { readData, writeData } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
@@ -30,10 +30,11 @@ export async function GET(request) {
     // 3. Clear the active picks for the new week
     await writeData('picks.json', {});
 
-    // 4. Generate the new week's slate
+    // 4. Generate the new week's slate using the structured picker
     const espnData = await fetchCurrentNFLWeek();
-    const newSlate = generateWeeklySlate(espnData);
-    const nextWeekNumber = espnData.week?.number || finishedWeek + 1;
+    const events = espnData?.events || [];
+    const newSlate = selectWeeklyGames(events);
+    const nextWeekNumber = espnData?.week?.number || finishedWeek + 1;
 
     await writeData('current_slate.json', {
       week: nextWeekNumber,
