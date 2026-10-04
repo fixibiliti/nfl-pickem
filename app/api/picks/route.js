@@ -97,7 +97,9 @@ export async function POST(req) {
 
     for (const [gameId, selectedTeamId] of Object.entries(picks)) {
       const gameKickoff = kickoffMap[gameId];
-      const locked = gameKickoff ? isGameLocked(gameKickoff, effectiveNow) : false;
+      
+      // TEMPORARY MANUAL OVERRIDE: Set locked to false to permit late submission
+      const locked = false; // gameKickoff ? isGameLocked(gameKickoff, effectiveNow) : false;
 
       if (locked) {
         const priorChoice = existingPickMap[gameId];
