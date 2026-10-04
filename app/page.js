@@ -956,34 +956,29 @@ try {
                   </button>
                 </div>
               ) : (
-                {(() => {
-  
-      // Find which games on the slate are still open to pick (not completed)
+                (() => {
                   const openGames = slate.filter((g) => !g.isCompleted);
                   const openGamesCount = openGames.length;
                   const pickedOpenGamesCount = openGames.filter((g) => currentDisplayedPicks[g.gameId]).length;
-
-      // Ready if all playable games are picked (or all 5 if full slate is open)
                   const isReady = openGamesCount > 0 && pickedOpenGamesCount === openGamesCount;
                   const isDisabled = isScheduleLocked || !isReady || loading;
 
-      return (
-          <button
-              onClick={submitPicks}
-              disabled={isDisabled}
-              className="w-full py-4 rounded-xl font-black text-sm bg-emerald-500 hover:bg-emerald-400 disabled:bg-slate-800 disabled:text-slate-600 text-slate-950 shadow-lg transition active:scale-98"
-    >
-              {loading
-              ? 'SAVING PICKS...'
-              : isScheduleLocked
-              ? 'PICKS CLOSED FOR THIS WEEK'
-              : isReady
-              ? `LOCK IN ${pickedOpenGamesCount} PICKS`
-              : `SELECT ${openGamesCount - pickedOpenGamesCount} MORE GAME${openGamesCount - pickedOpenGamesCount > 1 ? 'S' : ''}`}
-          </button>
-        );
-      })()}
-      
+                  return (
+                    <button
+                      onClick={submitPicks}
+                      disabled={isDisabled}
+                      className="w-full py-4 rounded-xl font-black text-sm bg-emerald-500 hover:bg-emerald-400 disabled:bg-slate-800 disabled:text-slate-600 text-slate-950 shadow-lg transition active:scale-98"
+                    >
+                      {loading
+                        ? 'SAVING PICKS...'
+                        : isScheduleLocked
+                        ? 'PICKS CLOSED FOR THIS WEEK'
+                        : isReady
+                        ? `LOCK IN ${pickedOpenGamesCount} PICKS`
+                        : `SELECT ${openGamesCount - pickedOpenGamesCount} MORE GAME${openGamesCount - pickedOpenGamesCount > 1 ? 'S' : ''}`}
+                    </button>
+                  );
+                })()
               )}
             </div>
           )}
