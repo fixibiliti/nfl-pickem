@@ -36,7 +36,18 @@ export async function POST(request) {
     if (action === 'advance_week') {
       const res = await fetch(`${baseUrl}/api/cron/new-week`);
       const data = await res.json();
-      return NextResponse.json({ success: true, message: 'Advanced to next week successfully.' });
+
+      if (!res.ok) {
+        return NextResponse.json(
+          { error: data.error || 'Failed to advance week.' },
+          { status: res.status }
+        );
+      }
+
+      return NextResponse.json({
+        success: true,
+        message: data.message || 'Advanced to next week successfully.',
+      });
     }
 
     return NextResponse.json({ error: 'Invalid action.' }, { status: 400 });

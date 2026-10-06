@@ -1,11 +1,14 @@
 import { NextResponse } from 'next/server';
-import { fetchCurrentNFLWeek, selectWeeklyGames } from '@/lib/nfl';
+import { selectWeeklyGames } from '@/lib/nfl';
 import { readData, writeData } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request) {
   try {
+    const { searchParams } = new URL(request.url);
+    const force = searchParams.get('force') === 'true';
+
     // 1. Fetch current slate, standings, and picks
     const currentSlate = await readData('current_slate.json');
     const standings = (await readData('standings.json')) || [];
@@ -13,24 +16,37 @@ export async function GET(request) {
     const history = (await readData('history.json')) || [];
 
     const finishedWeek = currentSlate?.week || 1;
+    const activeGames = currentSlate?.slate || currentSlate?.games || [];
 
-    // 2. Archive completed week if not already archived
-    const alreadyArchived = history.some((h) => h.week === finishedWeek);
-    if (!alreadyArchived && currentSlate?.games) {
+    // 2. Safeguard: Check if all games on the active slate are completed
+    const unfinishedGames = activeGames.filter((g) => !g.isCompleted);
+
+    if (unfinishedGames.length > 0 && !force) {
+      return NextResponse.json(
+        {
+          error: `Cannot advance week: Week ${finishedWeek} still has ${unfinishedGames.length} unfinished game(s). All games must be FINAL before rollover.`,
+        },
+        { status: 400 }
+      );
+    }
+
+    // 3. Archive completed week if not already archived
+    const alreadyArchived = history.some((h) => Number(h.week) === Number(finishedWeek));
+    if (!alreadyArchived && activeGames.length > 0) {
       history.push({
         week: finishedWeek,
         archivedAt: new Date().toISOString(),
-        slate: currentSlate.games,
+        games: activeGames,
         standingsSnapshot: standings,
         picksSnapshot: picks,
       });
       await writeData('history.json', history);
     }
 
-    // 3. Clear the active picks for the new week
+    // 4. Clear active picks for the upcoming week
     await writeData('picks.json', {});
 
-    // 4. Advance to the next week
+    // 5. Advance to the next week
     const nextWeekNumber = finishedWeek + 1;
 
     // Fetch the exact slate for nextWeekNumber from ESPN
@@ -50,8 +66,11 @@ export async function GET(request) {
 
     await writeData('current_slate.json', {
       week: nextWeekNumber,
+      seasonType: 2,
+      year: 2026,
       createdAt: new Date().toISOString(),
-      games: newSlate,
+      slate: newSlate,
+      games: newSlate, // Provide both keys for compatibility
     });
 
     return NextResponse.json({
