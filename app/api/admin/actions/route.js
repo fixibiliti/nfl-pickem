@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { readData, writeData } from '@/lib/db';
+import { readData } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,23 +23,22 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Unauthorized: Admin access required.' }, { status: 403 });
     }
 
-    const baseUrl = process.env.VERCEL_URL
-      ? `https://${process.env.VERCEL_URL}`
-      : 'http://localhost:3000';
+    // Always use the real host/origin from the incoming browser request
+    const origin = request.nextUrl ? request.nextUrl.origin : new URL(request.url).origin;
 
     if (action === 'sync_scores') {
-      const res = await fetch(`${baseUrl}/api/cron/update-scores`);
-      const data = await res.json();
-      return NextResponse.json({ success: true, message: 'Scores synced with ESPN successfully.' });
+      const res = await fetch(`${origin}/api/cron/update-scores`, { cache: 'no-store' });
+      const data = await res.json().catch(() => ({}));
+      return NextResponse.json({ success: true, message: data.message || 'Scores synced with ESPN successfully.' });
     }
 
     if (action === 'advance_week') {
-      const res = await fetch(`${baseUrl}/api/cron/new-week`);
-      const data = await res.json();
+      const res = await fetch(`${origin}/api/cron/new-week`, { cache: 'no-store' });
+      const data = await res.json().catch(() => ({}));
 
       if (!res.ok) {
         return NextResponse.json(
-          { error: data.error || 'Failed to advance week.' },
+          { error: data.error || `Rollover rejected with status ${res.status}` },
           { status: res.status }
         );
       }
