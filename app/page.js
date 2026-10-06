@@ -1352,8 +1352,12 @@ try {
                       body: JSON.stringify({ requesterId: user.id, action: 'advance_week' })
                     });
                     const d = await res.json();
-                    setAdminMessage(d.message || 'Week advanced.');
-                    loadSlateAndScores(user.id);
+                    if (res.ok) {
+                      setAdminMessage(d.message || 'Week advanced.');
+                      loadSlateAndScores(user.id);
+                    } else {
+                      alert(d.error || 'Failed to advance week.');
+                    }
                   } catch (e) {
                     alert('Failed to advance week.');
                   } finally {
