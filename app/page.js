@@ -433,8 +433,11 @@ try {
 
   const submitPicks = async () => {
     const myPicks = allPicks[user.id] || {};
-    if (Object.keys(myPicks).length < 5) {
-      alert('Please make a pick for all 5 games!');
+    const openGames = slate.filter((g) => !g.isCompleted);
+    const pickedOpenGames = openGames.filter((g) => myPicks[g.gameId]);
+
+    if (openGames.length > 0 && pickedOpenGames.length < openGames.length) {
+      alert(`Please make a pick for all ${openGames.length} available games!`);
       return;
     }
     setLoading(true);
@@ -961,7 +964,8 @@ try {
                   const openGamesCount = openGames.length;
                   const pickedOpenGamesCount = openGames.filter((g) => currentDisplayedPicks[g.gameId]).length;
                   const isReady = openGamesCount > 0 && pickedOpenGamesCount === openGamesCount;
-                  const isDisabled = isScheduleLocked || !isReady || loading;
+                  // Allow submission if all open games are selected, even if Thursday is locked
+                  const isDisabled = !isReady || loading;
 
                   return (
                     <button
