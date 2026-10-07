@@ -871,8 +871,13 @@ try {
                           </span>
                         )}
                       </div>
-                      <span className="font-bold text-sm tracking-wide flex items-center gap-1">
+                      <span className="font-bold text-sm tracking-wide flex items-center gap-1.5">
                         {game.awayTeam.abbrev}
+                        {game.awayTeam.record && (
+                          <span className="text-[10px] font-mono font-medium text-slate-400 bg-slate-900/80 px-1.5 py-0.5 rounded border border-slate-800">
+                            {game.awayTeam.record}
+                          </span>
+                        )}
                         {isAwayWinner && <span className="text-emerald-300 text-xs font-black">✓</span>}
                       </span>
                       <span className="text-[10px] text-slate-400 truncate w-full text-center">
@@ -929,8 +934,13 @@ try {
                           </span>
                         )}
                       </div>
-                      <span className="font-bold text-sm tracking-wide flex items-center gap-1">
+                      <span className="font-bold text-sm tracking-wide flex items-center gap-1.5">
                         {game.homeTeam.abbrev}
+                        {game.homeTeam.record && (
+                          <span className="text-[10px] font-mono font-medium text-slate-400 bg-slate-900/80 px-1.5 py-0.5 rounded border border-slate-800">
+                            {game.homeTeam.record}
+                          </span>
+                        )}
                         {isHomeWinner && <span className="text-emerald-300 text-xs font-black">✓</span>}
                       </span>
                       <span className="text-[10px] text-slate-400 truncate w-full text-center">
