@@ -24,6 +24,13 @@ export default function Home() {
   const [viewingUserId, setViewingUserId] = useState(null);
   const [hasSubmitted, setHasSubmitted] = useState(false);
 
+  // Automatically sync viewingUserId to the logged-in user whenever user changes
+  useEffect(() => {
+    if (user?.id) {
+      setViewingUserId(user.id);
+    }
+  }, [user?.id]);
+
   const [slate, setSlate] = useState([]);
   const [standings, setStandings] = useState([]);
   const [historyData, setHistoryData] = useState([]);
