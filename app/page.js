@@ -1229,7 +1229,14 @@ try {
                               className="w-5 h-5 object-contain"
                             />
                           )}
-                          <span className="font-bold text-slate-200">{game.awayTeam.abbrev}</span>
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-bold text-slate-200">{game.awayTeam.abbrev}</span>
+                            {game.awayTeam.record && (
+                              <span className="text-[9px] font-mono font-medium text-slate-400 bg-slate-900/90 px-1 py-0.2 rounded border border-slate-800">
+                                {game.awayTeam.record}
+                              </span>
+                            )}
+                          </div>
                         </div>
                         {game.awayScore !== null && (
                           <span className="font-black text-white ml-2 text-sm">{game.awayScore}</span>
@@ -1246,7 +1253,14 @@ try {
                               className="w-5 h-5 object-contain"
                             />
                           )}
+                         <div className="flex items-center gap-1.5">
                           <span className="font-bold text-slate-200">{game.homeTeam.abbrev}</span>
+                          {game.homeTeam.record && (
+                            <span className="text-[9px] font-mono font-medium text-slate-400 bg-slate-900/90 px-1 py-0.2 rounded border border-slate-800">
+                              {game.homeTeam.record}
+                            </span>
+                          )}
+                        </div>
                         </div>
                         {game.homeScore !== null && (
                           <span className="font-black text-white ml-2 text-sm">{game.homeScore}</span>
