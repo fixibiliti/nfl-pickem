@@ -3,6 +3,13 @@ import { NextResponse } from 'next/server';
 export const dynamic = 'force-dynamic';
 export const revalidate = 60; // Cache for 60 seconds
 
+// Helper to extract the total record (e.g., "3-1") from ESPN competitor data
+function extractTeamRecord(competitor) {
+  if (!competitor?.records || !Array.isArray(competitor.records)) return null;
+  const totalRecord = competitor.records.find((r) => r.type === 'total') || competitor.records[0];
+  return totalRecord?.summary || null;
+}
+
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -69,12 +76,14 @@ export async function GET(request) {
           name: homeComp.team.displayName,
           abbrev: homeComp.team.abbreviation,
           logo: homeComp.team.logo,
+          record: extractTeamRecord(homeComp),
         },
         awayTeam: {
           id: awayComp.team.id,
           name: awayComp.team.displayName,
           abbrev: awayComp.team.abbreviation,
           logo: awayComp.team.logo,
+          record: extractTeamRecord(awayComp),
         },
         homeScore: homeComp.score || null,
         awayScore: awayComp.score || null,
