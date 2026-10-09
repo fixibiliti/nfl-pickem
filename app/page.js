@@ -80,7 +80,7 @@ export default function Home() {
       const diff = lockTarget - now;
 
       if (diff <= 0) {
-        setIsScheduleLocked(false);
+        setIsScheduleLocked(true);
         setTimeLeft('Picks Closed');
       } else {
         setIsScheduleLocked(false);

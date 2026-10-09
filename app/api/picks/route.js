@@ -99,7 +99,7 @@ export async function POST(req) {
       const gameKickoff = kickoffMap[gameId];
       
       // TEMPORARY MANUAL OVERRIDE: Set locked to false to permit late submission
-      const locked = false; // gameKickoff ? isGameLocked(gameKickoff, effectiveNow) : false;
+      const locked = gameKickoff ? isGameLocked(gameKickoff, effectiveNow) : false;
 
       if (locked) {
         const priorChoice = existingPickMap[gameId];
