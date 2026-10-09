@@ -58,45 +58,48 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState('slate');
   const [week, setWeek] = useState(2);
   const [isScheduleLocked, setIsScheduleLocked] = useState(false);
+  const [lockStatus, setLockStatus] = useState(null);
   const [timeLeft, setTimeLeft] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
 // 1. Dynamic Earliest-Kickoff Countdown & Global Schedule Lockout (1h Pre-Game)
+  
+  // Dynamic Window Countdown & Slate Status Sync
   useEffect(() => {
     if (!slate || slate.length === 0) return;
 
     const updateCountdown = () => {
-      const now = effectiveServerTime ? new Date(effectiveServerTime).getTime() : new Date().getTime();
-      const kickoffTimestamps = slate
-        .map((g) => new Date(g.date).getTime())
-        .filter((t) => !isNaN(t));
+      // 1. If we have a next target window from our lockStatus engine, count down to it
+      if (lockStatus?.nextTargetTime) {
+        const now = effectiveServerTime ? new Date(effectiveServerTime).getTime() : Date.now();
+        const target = new Date(lockStatus.nextTargetTime).getTime();
+        const diff = target - now;
 
-      if (kickoffTimestamps.length === 0) return;
-
-      const earliestKickoff = Math.min(...kickoffTimestamps);
-      const ONE_HOUR_MS = 60 * 60 * 1000;
-      const lockTarget = earliestKickoff - ONE_HOUR_MS;
-      const diff = lockTarget - now;
-
-      if (diff <= 0) {
-        setIsScheduleLocked(true);
-        setTimeLeft('Picks Closed');
-      } else {
-        setIsScheduleLocked(false);
-        const totalSeconds = Math.floor(diff / 1000);
-        const days = Math.floor(totalSeconds / 86400);
-        const hours = Math.floor((totalSeconds % 86400) / 3600);
-        const minutes = Math.floor((totalSeconds % 3600) / 60);
-        const seconds = totalSeconds % 60;
-
-        if (days > 0) {
-          setTimeLeft(`${days}d ${hours}h ${minutes}m ${seconds}s`);
+        if (diff <= 0) {
+          setTimeLeft('Picks Closed');
         } else {
-          setTimeLeft(`${hours}h ${minutes}m ${seconds}s`);
+          const totalSeconds = Math.floor(diff / 1000);
+          const days = Math.floor(totalSeconds / 86400);
+          const hours = Math.floor((totalSeconds % 86400) / 3600);
+          const minutes = Math.floor((totalSeconds % 3600) / 60);
+          const seconds = totalSeconds % 60;
+
+          if (days > 0) {
+            setTimeLeft(`${days}d ${hours}h ${minutes}m ${seconds}s`);
+          } else {
+            setTimeLeft(`${hours}h ${minutes}m ${seconds}s`);
+          }
         }
+      } else if (isScheduleLocked) {
+        setTimeLeft('Picks Closed');
       }
     };
+
+    updateCountdown();
+    const interval = setInterval(updateCountdown, 1000);
+    return () => clearInterval(interval);
+  }, [slate, lockStatus, isScheduleLocked, effectiveServerTime]);
 
     updateCountdown();
     const interval = setInterval(updateCountdown, 1000);
@@ -142,6 +145,7 @@ try {
   setWeek(data.week || 2);
   if (data.effectiveTime) setEffectiveServerTime(data.effectiveTime);
   if (data.isLocked !== undefined) setIsScheduleLocked(data.isLocked);
+  if (data.lockStatus) setLockStatus(data.lockStatus);
 
   const formattedAllPicks = {};
    if (data.picks) {
@@ -676,14 +680,16 @@ try {
 
           {/* Right Column: Picks Open Badge & Countdown */}
           <div className="flex flex-col items-end gap-1">
-            <span
+           <span
               className={`text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full tracking-wider border ${
                 isScheduleLocked
                   ? 'bg-rose-500/20 text-rose-400 border-rose-500/40'
+                  : lockStatus?.label === 'PICKS RE-OPENED'
+                  ? 'bg-amber-500/20 text-amber-400 border-amber-500/40'
                   : 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40'
               }`}
             >
-              {isScheduleLocked ? 'PICKS LOCKED' : 'PICKS OPEN'}
+              {lockStatus?.label || (isScheduleLocked ? 'PICKS LOCKED' : 'PICKS OPEN')}
             </span>
             <div className="text-[10px] font-mono text-slate-400 flex items-center gap-1">
               <span>⏳</span>
@@ -815,7 +821,11 @@ try {
               const isAwaySelected = currentDisplayedPicks[game.gameId] === game.awayTeam.id;
               const isHomeSelected = currentDisplayedPicks[game.gameId] === game.homeTeam.id;
 
-              const canEditThisSlate = !isScheduleLocked && !hasSubmitted && viewingUserId === user.id && !game.isCompleted;
+              // A specific game is locked if it's completed or flagged locked by the clock engine
+              const isThisGameLocked = game.isCompleted || !!lockStatus?.gameLocks?.find((g) => g.gameId === game.gameId)?.isLocked;
+
+              // Can edit if viewing own picks, user hasn't locked submissions, and this individual game is still open
+              const canEditThisSlate = !isThisGameLocked && !hasSubmitted && viewingUserId === user?.id;
 
               const isAwayWinner = game.isCompleted && game.winnerId === game.awayTeam.id;
               const isHomeWinner = game.isCompleted && game.winnerId === game.homeTeam.id;

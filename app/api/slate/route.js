@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { readData, writeData } from '@/lib/db';
 import { fetchCurrentNFLWeek, generateWeeklySlate } from '@/lib/nfl';
 import { getLiveScores } from '@/lib/espn';
-import { getEffectiveDate, isGameLocked } from '@/lib/clock';
+import { getEffectiveDate, isGameLocked, getSlateLockStatus } from '@/lib/clock';
 
 export const dynamic = 'force-dynamic';
 
@@ -101,22 +101,10 @@ export async function GET(request) {
       console.error('Failed to attach live odds to slate:', e);
     }
 
-   // 2. Use Virtual Clock / Effective Date
+   // 2. Use Virtual Clock / Effective Date & Calculate Lock Status
     const effectiveNow = await getEffectiveDate();
-    const effectiveMs = effectiveNow.getTime();
-
-    // Calculate earliest kickoff
-    const kickoffTimestamps = slate
-      .map((g) => (g && g.date ? new Date(g.date).getTime() : NaN))
-      .filter((t) => !isNaN(t));
-
-    const earliestKickoff = kickoffTimestamps.length > 0 ? Math.min(...kickoffTimestamps) : 0;
-
-    // Lock threshold is 1 hour (3,600,000 ms) before the earliest kickoff
-    const ONE_HOUR_MS = 60 * 60 * 1000;
-    const lockThreshold = earliestKickoff > 0 ? earliestKickoff - ONE_HOUR_MS : 0;
-    // TEMPORARY MANUAL OVERRIDE: Force picks open
-    const isLocked = false;
+    const lockStatus = getSlateLockStatus(slate, effectiveNow);
+    const isLocked = lockStatus.isLocked;
 
     // Create a kickoff lookup map by gameId for per-game reveals
     const kickoffMap = {};
@@ -172,6 +160,7 @@ export async function GET(request) {
       standings: enrichedStandings,
       picks: sanitizedPicks,
       isLocked,
+      lockStatus,
       effectiveTime: effectiveNow.toISOString(),
     });
 
