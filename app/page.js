@@ -63,14 +63,13 @@ export default function Home() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-// 1. Dynamic Earliest-Kickoff Countdown & Global Schedule Lockout (1h Pre-Game)
+// Dynamic Earliest-Kickoff Countdown & Global Schedule Lockout (1h Pre-Game)
   
-  // Dynamic Window Countdown & Slate Status Sync
+  // 1. Dynamic Window Countdown & Slate Status Sync
   useEffect(() => {
     if (!slate || slate.length === 0) return;
 
     const updateCountdown = () => {
-      // 1. If we have a next target window from our lockStatus engine, count down to it
       if (lockStatus?.nextTargetTime) {
         const now = effectiveServerTime ? new Date(effectiveServerTime).getTime() : Date.now();
         const target = new Date(lockStatus.nextTargetTime).getTime();
@@ -100,11 +99,6 @@ export default function Home() {
     const interval = setInterval(updateCountdown, 1000);
     return () => clearInterval(interval);
   }, [slate, lockStatus, isScheduleLocked, effectiveServerTime]);
-
-    updateCountdown();
-    const interval = setInterval(updateCountdown, 1000);
-    return () => clearInterval(interval);
-  }, [slate, effectiveServerTime]);
 
   // 2. Persistent Login Check with Server Verification
 useEffect(() => {
