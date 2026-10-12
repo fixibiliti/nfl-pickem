@@ -1003,7 +1003,7 @@ try {
       </div>
     </div>
   );
-})
+})}
 
           {viewingUserId === user.id && (
             <div className="pt-2 space-y-2">
