@@ -74,23 +74,36 @@ export async function GET(request) {
         }
 
         // Merge live status & scores from ESPN feed
-        const isCompleted = liveGame ? liveGame.isCompleted : game.isCompleted;
+        const isCompleted = liveGame ? !!liveGame.isCompleted : !!game.isCompleted;
+        const isInProgress = liveGame ? !!liveGame.isInProgress : false;
+        const statusText = liveGame?.status || (isCompleted ? 'FINAL' : null);
+
         const homeScore = liveGame && liveGame.home?.score !== null && liveGame.home?.score !== undefined 
           ? String(liveGame.home.score) 
           : game.homeScore;
         const awayScore = liveGame && liveGame.away?.score !== null && liveGame.away?.score !== undefined 
           ? String(liveGame.away.score) 
           : game.awayScore;
-        let winnerId = game.winnerId;
 
-        if (liveGame && isCompleted) {
-          if (liveGame.home?.winner) winnerId = game.homeTeam?.id;
-          else if (liveGame.away?.winner) winnerId = game.awayTeam?.id;
+        let winnerId = game.winnerId;
+        const isTie = isCompleted && homeScore !== null && awayScore !== null && Number(homeScore) === Number(awayScore);
+
+        if (isCompleted) {
+          if (isTie) {
+            winnerId = 'TIE';
+          } else if (liveGame?.home?.winner || Number(homeScore) > Number(awayScore)) {
+            winnerId = game.homeTeam?.id;
+          } else if (liveGame?.away?.winner || Number(awayScore) > Number(homeScore)) {
+            winnerId = game.awayTeam?.id;
+          }
         }
 
         return {
           ...game,
           isCompleted,
+          isInProgress,
+          statusText,
+          isTie,
           homeScore,
           awayScore,
           winnerId,
