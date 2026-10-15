@@ -187,7 +187,7 @@ try {
 
   const loadHistory = async () => {
     try {
-      const res = await fetch('/api/history');
+      const res = await ;fetch(`/api/history?userId=${user?.id || ''}`)
       const data = await res.json();
       setHistoryData(data.history || []);
     } catch (err) {
@@ -1168,22 +1168,33 @@ try {
 
                       <div className="grid grid-cols-3 gap-2 text-center pt-1">
                         {standings.map((p) => {
-                          const userPick = archive.picks?.[p.id]?.find((pk) => pk.gameId === g.gameId)?.selectedTeamId;
-                          const isWinner = g.winnerId && userPick === g.winnerId;
-                          const teamAbbrev = userPick === g.homeTeam.id ? g.homeTeam.abbrev : g.awayTeam.abbrev;
+                          const pickObj = archive.picks?.[p.id]?.find((pk) => pk.gameId === g.gameId);
+                          const userPick = pickObj?.selectedTeamId;
+                          const isHidden = pickObj?.hidden;
+                          const isTie = !!g.isTie;
+                          const isWinner = g.winnerId && !isTie && userPick === g.winnerId;
+                          const teamAbbrev = userPick ? (userPick === g.homeTeam.id ? g.homeTeam.abbrev : g.awayTeam.abbrev) : null;
 
                           return (
                             <div key={p.id}>
                               <span className="text-[10px] text-slate-500 block mb-1 truncate">{p.name}</span>
-                              {userPick ? (
+                              {isHidden ? (
+                                <span className="px-2 py-0.5 rounded font-mono text-[10px] bg-slate-800/60 text-slate-400 border border-slate-700/50">
+                                  🔒 Locked
+                                </span>
+                              ) : userPick ? (
                                 <span
                                   className={`px-2 py-0.5 rounded font-bold text-[11px] ${
                                     isWinner
                                       ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'
-                                      : 'bg-slate-800 text-slate-300'
+                                      : isTie
+                                      ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                                      : g.isCompleted
+                                      ? 'bg-slate-800 text-slate-400'
+                                      : 'bg-slate-800 text-slate-200'
                                   }`}
                                 >
-                                  {teamAbbrev} {isWinner ? '✓' : ''}
+                                  {teamAbbrev} {isWinner ? '✓' : isTie ? '½' : ''}
                                 </span>
                               ) : (
                                 <span className="text-slate-600">-</span>
