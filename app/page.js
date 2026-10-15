@@ -187,7 +187,7 @@ try {
 
   const loadHistory = async () => {
     try {
-      const res = await ;fetch(`/api/history?userId=${user?.id || ''}`)
+      const res = await fetch(`/api/history?userId=${user?.id || ''}`)
       const data = await res.json();
       setHistoryData(data.history || []);
     } catch (err) {
