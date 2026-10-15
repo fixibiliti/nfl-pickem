@@ -10,6 +10,24 @@ export default function Home() {
   const [name, setName] = useState('');
   const [pin, setPin] = useState('');
 
+  // Accordion state for Recap tab (starts with everything fully collapsed)
+  const [expandedWeeks, setExpandedWeeks] = useState({});
+  const [expandedGames, setExpandedGames] = useState({});
+
+  const toggleWeek = (weekNum) => {
+    setExpandedWeeks((prev) => ({
+      ...prev,
+      [weekNum]: !prev[weekNum],
+    }));
+  };
+
+  const toggleGame = (gameId) => {
+    setExpandedGames((prev) => ({
+      ...prev,
+      [gameId]: !prev[gameId],
+    }));
+  };
+
   // Self-Serve Auth States
   const [authMode, setAuthMode] = useState('login'); // 'login' | 'signup'
   const [leaguePasscode, setLeaguePasscode] = useState('');
@@ -1139,75 +1157,143 @@ try {
 
       {/* TAB 3: SEASON RECAP DASHBOARD */}
       {activeTab === 'history' && (
-        <main className="px-3 py-3 space-y-4">
-          <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider px-1">Picks & Results History</h3>
+        <main className="px-3 py-3 space-y-3">
+          <div className="flex justify-between items-center px-1">
+            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+              Picks & Results History
+            </h3>
+            <span className="text-[11px] text-slate-500 font-mono">
+              {historyData.length} Weeks Archived
+            </span>
+          </div>
 
           {historyData.length === 0 ? (
             <div className="p-8 text-center bg-slate-900 border border-slate-800 rounded-2xl text-slate-400 text-sm">
               No completed weeks archived yet. History will show final scores and everyone's picks once games conclude!
             </div>
           ) : (
-            historyData.map((archive) => (
-              <div key={archive.week} className="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-sm space-y-3">
-                <div className="flex justify-between items-center border-b border-slate-800 pb-2">
-                  <span className="font-black text-emerald-400 text-sm">WEEK {archive.week}</span>
-                  <span className="text-[11px] text-slate-400">Final Results</span>
-                </div>
+            historyData.map((archive) => {
+              const isWeekOpen = !!expandedWeeks[archive.week];
 
-                {archive.games?.map((g) => {
-                  return (
-                    <div key={g.gameId} className="bg-slate-950 p-3 rounded-xl border border-slate-800/80 text-xs">
-                      <div className="flex justify-between items-center font-bold text-slate-200 border-b border-slate-800/60 pb-2 mb-2">
-                        <span>
-                          {g.awayTeam.abbrev} ({g.awayScore || '0'}) @ {g.homeTeam.abbrev} ({g.homeScore || '0'})
-                        </span>
-                        <span className="text-[10px] text-slate-400 uppercase font-normal">
-                          {g.isCompleted ? 'Final' : 'In Progress'}
-                        </span>
-                      </div>
-
-                      <div className="grid grid-cols-3 gap-2 text-center pt-1">
-                        {standings.map((p) => {
-                          const pickObj = archive.picks?.[p.id]?.find((pk) => pk.gameId === g.gameId);
-                          const userPick = pickObj?.selectedTeamId;
-                          const isHidden = pickObj?.hidden;
-                          const isTie = !!g.isTie;
-                          const isWinner = g.winnerId && !isTie && userPick === g.winnerId;
-                          const teamAbbrev = userPick ? (userPick === g.homeTeam.id ? g.homeTeam.abbrev : g.awayTeam.abbrev) : null;
-
-                          return (
-                            <div key={p.id}>
-                              <span className="text-[10px] text-slate-500 block mb-1 truncate">{p.name}</span>
-                              {isHidden ? (
-                                <span className="px-2 py-0.5 rounded font-mono text-[10px] bg-slate-800/60 text-slate-400 border border-slate-700/50">
-                                  🔒 Locked
-                                </span>
-                              ) : userPick ? (
-                                <span
-                                  className={`px-2 py-0.5 rounded font-bold text-[11px] ${
-                                    isWinner
-                                      ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'
-                                      : isTie
-                                      ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
-                                      : g.isCompleted
-                                      ? 'bg-slate-800 text-slate-400'
-                                      : 'bg-slate-800 text-slate-200'
-                                  }`}
-                                >
-                                  {teamAbbrev} {isWinner ? '✓' : isTie ? '½' : ''}
-                                </span>
-                              ) : (
-                                <span className="text-slate-600">-</span>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
+              return (
+                <div
+                  key={archive.week}
+                  className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-sm transition-all"
+                >
+                  {/* LEVEL 1: WEEK HEADER ACCORDION */}
+                  <button
+                    type="button"
+                    onClick={() => toggleWeek(archive.week)}
+                    className="w-full flex justify-between items-center p-3.5 bg-slate-900 hover:bg-slate-800/60 transition-colors text-left"
+                  >
+                    <div className="flex items-center space-x-2.5">
+                      <span className="font-black text-emerald-400 text-sm">
+                        WEEK {archive.week}
+                      </span>
+                      <span className="text-[10px] text-slate-400 font-medium px-2 py-0.5 rounded-full bg-slate-800 border border-slate-700/60">
+                        {archive.games?.length || 0} Games
+                      </span>
                     </div>
-                  );
-                })}
-              </div>
-            ))
+                    <div className="flex items-center space-x-2 text-slate-400 text-xs">
+                      <span className="text-[11px]">Final Results</span>
+                      <span className="text-xs font-mono">
+                        {isWeekOpen ? '▲' : '▼'}
+                      </span>
+                    </div>
+                  </button>
+
+                  {/* LEVEL 2: GAMES LIST (VISIBLE ONLY WHEN WEEK EXPANDED) */}
+                  {isWeekOpen && (
+                    <div className="p-3 pt-1 space-y-2 border-t border-slate-800/80 bg-slate-950/40">
+                      {archive.games?.map((g) => {
+                        const isGameOpen = !!expandedGames[g.gameId];
+
+                        return (
+                          <div
+                            key={g.gameId}
+                            className="rounded-xl border border-slate-800/90 bg-slate-950 overflow-hidden"
+                          >
+                            {/* LEVEL 2: GAME SUMMARY BUTTON */}
+                            <button
+                              type="button"
+                              onClick={() => toggleGame(g.gameId)}
+                              className="w-full flex justify-between items-center p-2.5 hover:bg-slate-900/50 transition-colors text-left"
+                            >
+                              <div className="flex items-center space-x-2 font-bold text-slate-200 text-xs">
+                                <span>
+                                  {g.awayTeam.abbrev} ({g.awayScore || '0'}) @ {g.homeTeam.abbrev} ({g.homeScore || '0'})
+                                </span>
+                                {g.isCompleted && (
+                                  <span className="text-[9px] font-semibold text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">
+                                    FINAL
+                                  </span>
+                                )}
+                              </div>
+
+                              <div className="flex items-center space-x-1.5 text-slate-400 text-[10px]">
+                                <span>{isGameOpen ? 'Hide Picks' : 'View Picks'}</span>
+                                <span className="font-mono text-[9px]">
+                                  {isGameOpen ? '▲' : '▼'}
+                                </span>
+                              </div>
+                            </button>
+
+                            {/* LEVEL 3: PICKS GRID (VISIBLE ONLY WHEN GAME EXPANDED) */}
+                            {isGameOpen && (
+                              <div className="p-3 border-t border-slate-800 bg-slate-900/30">
+                                <div className="grid grid-cols-3 gap-2 text-center">
+                                  {standings.map((p) => {
+                                    const pickObj = archive.picks?.[p.id]?.find((pk) => pk.gameId === g.gameId);
+                                    const userPick = pickObj?.selectedTeamId;
+                                    const isHidden = pickObj?.hidden;
+                                    const isTie = !!g.isTie;
+                                    const isWinner = g.winnerId && !isTie && userPick === g.winnerId;
+                                    const teamAbbrev = userPick
+                                      ? userPick === g.homeTeam.id
+                                        ? g.homeTeam.abbrev
+                                        : g.awayTeam.abbrev
+                                      : null;
+
+                                    return (
+                                      <div key={p.id}>
+                                        <span className="text-[10px] text-slate-500 block mb-1 truncate">
+                                          {p.name}
+                                        </span>
+                                        {isHidden ? (
+                                          <span className="px-2 py-0.5 rounded font-mono text-[10px] bg-slate-800/60 text-slate-400 border border-slate-700/50">
+                                            🔒 Locked
+                                          </span>
+                                        ) : userPick ? (
+                                          <span
+                                            className={`px-2 py-0.5 rounded font-bold text-[11px] ${
+                                              isWinner
+                                                ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'
+                                                : isTie
+                                                ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                                                : g.isCompleted
+                                                ? 'bg-slate-800 text-slate-400'
+                                                : 'bg-slate-800 text-slate-200'
+                                            }`}
+                                          >
+                                            {teamAbbrev} {isWinner ? '✓' : isTie ? '½' : ''}
+                                          </span>
+                                        ) : (
+                                          <span className="text-slate-600">-</span>
+                                        )}
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })
           )}
         </main>
       )}
