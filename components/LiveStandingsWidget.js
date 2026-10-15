@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 
-export default function LiveStandingsWidget({ week = 2, year = 2026 }) {
+export default function LiveStandingsWidget({ week = 6, year = 2026 }) {
   const [standings, setStandings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -60,7 +60,7 @@ export default function LiveStandingsWidget({ week = 2, year = 2026 }) {
         <div className="border-t border-slate-800/80 bg-slate-950/40">
           <div className="flex justify-between items-center px-4 py-2 bg-slate-950/60 border-b border-slate-800/60">
             <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-              {loading ? 'Refreshing...' : 'Live Scores'}
+              {loading ? 'Refreshing...' : 'Season Standings'}
             </span>
             <button
               type="button"
@@ -75,56 +75,73 @@ export default function LiveStandingsWidget({ week = 2, year = 2026 }) {
           </div>
 
           <div className="divide-y divide-slate-800/50 max-h-72 overflow-y-auto">
-            {standings.map((user) => (
-              <div
-                key={user.userId}
-                className="flex items-center justify-between px-4 py-2 hover:bg-slate-800/30 text-xs"
-              >
-                {/* Rank & Name */}
-                <div className="flex items-center gap-2.5 min-w-[100px] truncate">
-                  <span
-                    className={`w-5 h-5 flex items-center justify-center rounded-full text-[11px] font-bold ${
-                      user.rank === 1
-                        ? 'bg-amber-400/20 text-amber-300 border border-amber-500/30'
-                        : 'text-slate-400'
-                    }`}
-                  >
-                    {user.rank}
-                  </span>
-                  <span className="font-medium text-slate-200 truncate">{user.userName}</span>
-                </div>
+            {standings.map((user, index) => {
+              const rank = index + 1;
+              const userId = user.id || user.userId || `user-${index}`;
+              const userName = user.name || user.userName || 'Player';
+              const points = user.points ?? user.totalPoints ?? 0;
+              const wins = user.wins ?? 0;
+              const losses = user.losses ?? 0;
+              const ties = user.ties ?? 0;
+              const picksDetail = Array.isArray(user.picksDetail) ? user.picksDetail : [];
 
-                {/* Team Badges */}
-                <div className="flex items-center gap-1">
-                  {user.picksDetail.map((pick, i) => {
-                    let badgeColor = 'bg-slate-800 text-slate-400 border-slate-700/60';
+              return (
+                <div
+                  key={userId}
+                  className="flex items-center justify-between px-4 py-2 hover:bg-slate-800/30 text-xs"
+                >
+                  {/* Rank & Name */}
+                  <div className="flex items-center gap-2.5 min-w-[120px] truncate">
+                    <span
+                      className={`w-5 h-5 flex items-center justify-center rounded-full text-[11px] font-bold ${
+                        rank === 1
+                          ? 'bg-amber-400/20 text-amber-300 border border-amber-500/30'
+                          : 'text-slate-400'
+                      }`}
+                    >
+                      {rank}
+                    </span>
+                    <span className="font-medium text-slate-200 truncate">{userName}</span>
+                  </div>
 
-                    if (pick.result === 'WIN') {
-                      badgeColor = 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40';
-                    } else if (pick.result === 'LOSS') {
-                      badgeColor = 'bg-rose-500/20 text-rose-400 border-rose-500/40';
-                    } else if (pick.result === 'LIVE') {
-                      badgeColor = 'bg-amber-500/20 text-amber-300 border-amber-500/50 animate-pulse';
-                    }
+                  {/* Pick Badges (if available) or W-L-T Record */}
+                  <div className="flex items-center gap-1">
+                    {picksDetail.length > 0 ? (
+                      picksDetail.map((pick, i) => {
+                        let badgeColor = 'bg-slate-800 text-slate-400 border-slate-700/60';
 
-                    return (
-                      <span
-                        key={i}
-                        className={`px-1.5 py-0.5 text-[10px] font-bold rounded border ${badgeColor}`}
-                      >
-                        {pick.team}
+                        if (pick.result === 'WIN') {
+                          badgeColor = 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40';
+                        } else if (pick.result === 'LOSS') {
+                          badgeColor = 'bg-rose-500/20 text-rose-400 border-rose-500/40';
+                        } else if (pick.result === 'LIVE') {
+                          badgeColor = 'bg-amber-500/20 text-amber-300 border-amber-500/50 animate-pulse';
+                        }
+
+                        return (
+                          <span
+                            key={i}
+                            className={`px-1.5 py-0.5 text-[10px] font-bold rounded border ${badgeColor}`}
+                          >
+                            {pick.team}
+                          </span>
+                        );
+                      })
+                    ) : (
+                      <span className="text-[11px] font-mono text-slate-400">
+                        {wins}W - {losses}L{ties > 0 ? ` - ${ties}T` : ''}
                       </span>
-                    );
-                  })}
-                </div>
+                    )}
+                  </div>
 
-                {/* Points */}
-                <div className="text-right min-w-[45px]">
-                  <span className="font-bold text-white text-xs">{user.totalPoints}</span>
-                  <span className="text-[10px] text-slate-400 ml-0.5">pts</span>
+                  {/* Points */}
+                  <div className="text-right min-w-[50px]">
+                    <span className="font-bold text-white text-xs">{points}</span>
+                    <span className="text-[10px] text-slate-400 ml-0.5">pts</span>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
