@@ -1041,20 +1041,23 @@ try {
                 </div>
               ) : (
                 (() => {
-                  const openGames = slate.filter((g) => !g.isCompleted);
+                  const safeSlate = Array.isArray(slate) ? slate : [];
+                  const openGames = safeSlate.filter((g) => !g?.isCompleted);
                   const openGamesCount = openGames.length;
-                  const pickedOpenGamesCount = openGames.filter((g) => currentDisplayedPicks[g.gameId]).length;
+                  const pickedOpenGamesCount = openGames.filter(
+                    (g) => currentDisplayedPicks && currentDisplayedPicks[g?.gameId]
+                  ).length;
                   const isReady = openGamesCount > 0 && pickedOpenGamesCount === openGamesCount;
 
-                  // 1. If Thursday lock is active, but Sunday/Monday games are still ahead:
-                  const hasFutureWeekendGames = slate.some((g) => {
+                  const hasFutureWeekendGames = safeSlate.some((g) => {
+                    if (!g?.date) return false;
                     const d = new Date(g.date);
-                    return d.getUTCDay() === 0 || d.getUTCDay() === 1; // Sunday or Monday
+                    const day = d.getUTCDay();
+                    return day === 0 || day === 1; // Sunday or Monday
                   });
-                  const isInterimLock = isScheduleLocked && hasFutureWeekendGames && openGamesCount > 0;
 
-                  // 2. Button is disabled if loading, slate locked, or missing picks
-                  const isDisabled = !isReady || loading || isScheduleLocked;
+                  const isInterimLock = Boolean(isScheduleLocked && hasFutureWeekendGames && openGamesCount > 0);
+                  const isDisabled = !isReady || Boolean(loading) || Boolean(isScheduleLocked);
 
                   if (isInterimLock) {
                     return (
@@ -1063,9 +1066,7 @@ try {
                           🔒 MID-WEEK LOCK ACTIVE • REOPENS FRIDAY MORNING
                         </div>
                         <p className="text-center text-[11px] text-slate-400">
-                          {countdownText 
-                            ? `Window unlocks in ${countdownText} for Sunday & Monday matchups.`
-                            : 'Sunday & Monday picks can be adjusted once the window reopens.'}
+                          Sunday &amp; Monday picks can be adjusted once the window reopens.
                         </p>
                       </div>
                     );
@@ -1081,6 +1082,7 @@ try {
 
                   return (
                     <button
+                      type="button"
                       onClick={submitPicks}
                       disabled={isDisabled}
                       className="w-full py-4 rounded-xl font-black text-sm bg-emerald-500 hover:bg-emerald-400 disabled:bg-slate-800 disabled:text-slate-600 text-slate-950 shadow-lg transition active:scale-98"
