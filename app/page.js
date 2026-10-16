@@ -1045,8 +1045,39 @@ try {
                   const openGamesCount = openGames.length;
                   const pickedOpenGamesCount = openGames.filter((g) => currentDisplayedPicks[g.gameId]).length;
                   const isReady = openGamesCount > 0 && pickedOpenGamesCount === openGamesCount;
-                  // Allow submission if all open games are selected, even if Thursday is locked
-                  const isDisabled = !isReady || loading;
+
+                  // 1. If Thursday lock is active, but Sunday/Monday games are still ahead:
+                  const hasFutureWeekendGames = slate.some((g) => {
+                    const d = new Date(g.date);
+                    return d.getUTCDay() === 0 || d.getUTCDay() === 1; // Sunday or Monday
+                  });
+                  const isInterimLock = isScheduleLocked && hasFutureWeekendGames && openGamesCount > 0;
+
+                  // 2. Button is disabled if loading, slate locked, or missing picks
+                  const isDisabled = !isReady || loading || isScheduleLocked;
+
+                  if (isInterimLock) {
+                    return (
+                      <div className="space-y-1.5">
+                        <div className="w-full py-3.5 px-4 rounded-xl text-center font-bold text-xs bg-amber-500/10 text-amber-300 border border-amber-500/30">
+                          🔒 MID-WEEK LOCK ACTIVE • REOPENS FRIDAY MORNING
+                        </div>
+                        <p className="text-center text-[11px] text-slate-400">
+                          {countdownText 
+                            ? `Window unlocks in ${countdownText} for Sunday & Monday matchups.`
+                            : 'Sunday & Monday picks can be adjusted once the window reopens.'}
+                        </p>
+                      </div>
+                    );
+                  }
+
+                  if (isScheduleLocked) {
+                    return (
+                      <div className="w-full py-3.5 px-4 rounded-xl text-center font-bold text-xs bg-slate-800/80 text-slate-400 border border-slate-700/50">
+                        🔒 PICKS CLOSED FOR THIS WEEK
+                      </div>
+                    );
+                  }
 
                   return (
                     <button
@@ -1056,11 +1087,11 @@ try {
                     >
                       {loading
                         ? 'SAVING PICKS...'
-                        : isScheduleLocked
-                        ? 'PICKS CLOSED FOR THIS WEEK'
                         : isReady
                         ? `LOCK IN ${pickedOpenGamesCount} PICKS`
-                        : `SELECT ${openGamesCount - pickedOpenGamesCount} MORE GAME${openGamesCount - pickedOpenGamesCount > 1 ? 'S' : ''}`}
+                        : `SELECT ${openGamesCount - pickedOpenGamesCount} MORE GAME${
+                            openGamesCount - pickedOpenGamesCount > 1 ? 'S' : ''
+                          }`}
                     </button>
                   );
                 })()
