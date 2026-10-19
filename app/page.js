@@ -1092,7 +1092,7 @@ try {
                     return (
                       <div className="space-y-1.5">
                         <div className="w-full py-3.5 px-4 rounded-xl text-center font-bold text-xs bg-slate-800/80 text-slate-300 border border-slate-700/60">
-                          🔒 WEEK {currentSlateWeek || slate?.[0]?.week || 6} LOCKED • NEW SLATE TUESDAY MORNING
+                          🔒 WEEK {slate?.[0]?.week || 6} LOCKED • NEW SLATE TUESDAY MORNING
                         </div>
                         <p className="text-center text-[11px] text-slate-400">
                           All picks are final. Live standings update as games conclude.
