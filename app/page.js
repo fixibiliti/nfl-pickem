@@ -1024,7 +1024,9 @@ try {
   })
 )}
 
-          {hasSubmitted && !isScheduleLocked ? (
+          {viewingUserId === user?.id && (
+            <div className="pt-2 space-y-2">
+              {hasSubmitted && !isScheduleLocked ? (
                 <div className="space-y-2">
                   <div className="bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 p-3 rounded-xl text-center text-xs font-bold">
                     ✓ Your picks are locked in! Good luck this week!
@@ -1047,13 +1049,11 @@ try {
                   ).length;
                   const isReady = openGamesCount > 0 && pickedOpenGamesCount === openGamesCount;
 
-                  // Determine current day from the application clock or fallback to client time
                   const currentEffectiveDate = typeof effectiveDate !== 'undefined' && effectiveDate
                     ? new Date(effectiveDate)
                     : new Date();
                   const currentDay = currentEffectiveDate.getDay(); // 0 = Sun, 1 = Mon, 4 = Thu, 5 = Fri, 6 = Sat
 
-                  // Check if any games in the slate are scheduled for Sunday or Monday
                   const hasFutureWeekendGames = safeSlate.some((g) => {
                     if (!g?.date) return false;
                     const d = new Date(g.date);
@@ -1061,7 +1061,6 @@ try {
                     return day === 0 || day === 1;
                   });
 
-                  // Interim lock applies ONLY during Thursday night and early Friday morning
                   const isInterimLock = Boolean(
                     isScheduleLocked &&
                     (currentDay === 4 || currentDay === 5) &&
@@ -1069,7 +1068,6 @@ try {
                     openGamesCount > 0
                   );
 
-                  // Weekend lock applies once weekend games kickoff (Saturday, Sunday, Monday)
                   const isWeekendLock = Boolean(
                     isScheduleLocked &&
                     (currentDay === 0 || currentDay === 1 || currentDay === 6)
@@ -1077,7 +1075,6 @@ try {
 
                   const isDisabled = !isReady || Boolean(loading) || Boolean(isScheduleLocked);
 
-                  // 1. Thursday night / early Friday morning lock
                   if (isInterimLock) {
                     return (
                       <div className="space-y-1.5">
@@ -1091,7 +1088,6 @@ try {
                     );
                   }
 
-                  // 2. Weekend final lock (Sunday / Monday through Tuesday morning rollover)
                   if (isWeekendLock || isScheduleLocked) {
                     return (
                       <div className="space-y-1.5">
@@ -1105,7 +1101,6 @@ try {
                     );
                   }
 
-                  // 3. Open submission window
                   return (
                     <button
                       type="button"
