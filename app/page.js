@@ -1024,9 +1024,7 @@ try {
   })
 )}
 
-          {viewingUserId === user.id && (
-            <div className="pt-2 space-y-2">
-              {hasSubmitted && !isScheduleLocked ? (
+          {hasSubmitted && !isScheduleLocked ? (
                 <div className="space-y-2">
                   <div className="bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 p-3 rounded-xl text-center text-xs font-bold">
                     ✓ Your picks are locked in! Good luck this week!
@@ -1049,37 +1047,65 @@ try {
                   ).length;
                   const isReady = openGamesCount > 0 && pickedOpenGamesCount === openGamesCount;
 
+                  // Determine current day from the application clock or fallback to client time
+                  const currentEffectiveDate = typeof effectiveDate !== 'undefined' && effectiveDate
+                    ? new Date(effectiveDate)
+                    : new Date();
+                  const currentDay = currentEffectiveDate.getDay(); // 0 = Sun, 1 = Mon, 4 = Thu, 5 = Fri, 6 = Sat
+
+                  // Check if any games in the slate are scheduled for Sunday or Monday
                   const hasFutureWeekendGames = safeSlate.some((g) => {
                     if (!g?.date) return false;
                     const d = new Date(g.date);
                     const day = d.getUTCDay();
-                    return day === 0 || day === 1; // Sunday or Monday
+                    return day === 0 || day === 1;
                   });
 
-                  const isInterimLock = Boolean(isScheduleLocked && hasFutureWeekendGames && openGamesCount > 0);
+                  // Interim lock applies ONLY during Thursday night and early Friday morning
+                  const isInterimLock = Boolean(
+                    isScheduleLocked &&
+                    (currentDay === 4 || currentDay === 5) &&
+                    hasFutureWeekendGames &&
+                    openGamesCount > 0
+                  );
+
+                  // Weekend lock applies once weekend games kickoff (Saturday, Sunday, Monday)
+                  const isWeekendLock = Boolean(
+                    isScheduleLocked &&
+                    (currentDay === 0 || currentDay === 1 || currentDay === 6)
+                  );
+
                   const isDisabled = !isReady || Boolean(loading) || Boolean(isScheduleLocked);
 
+                  // 1. Thursday night / early Friday morning lock
                   if (isInterimLock) {
                     return (
                       <div className="space-y-1.5">
                         <div className="w-full py-3.5 px-4 rounded-xl text-center font-bold text-xs bg-amber-500/10 text-amber-300 border border-amber-500/30">
-                          🔒 MID-WEEK LOCK ACTIVE • REOPENS FRIDAY MORNING
+                          🔒 THURSDAY LOCKED • REOPENS FRIDAY MORNING
                         </div>
                         <p className="text-center text-[11px] text-slate-400">
-                          Sunday &amp; Monday picks can be adjusted once the window reopens.
+                          Weekend picks can be adjusted once the window reopens Friday.
                         </p>
                       </div>
                     );
                   }
 
-                  if (isScheduleLocked) {
+                  // 2. Weekend final lock (Sunday / Monday through Tuesday morning rollover)
+                  if (isWeekendLock || isScheduleLocked) {
                     return (
-                      <div className="w-full py-3.5 px-4 rounded-xl text-center font-bold text-xs bg-slate-800/80 text-slate-400 border border-slate-700/50">
-                        🔒 PICKS CLOSED FOR THIS WEEK
+                      <div className="space-y-1.5">
+                        <div className="w-full py-3.5 px-4 rounded-xl text-center font-bold text-xs bg-slate-800/80 text-slate-300 border border-slate-700/60">
+                          🔒 WEEK {currentSlateWeek || slate?.[0]?.week || 6} LOCKED • NEW SLATE TUESDAY MORNING
+                        </div>
+                        <p className="text-center text-[11px] text-slate-400">
+                          All picks are final. Live standings update as games conclude.
+                        </p>
                       </div>
                     );
                   }
 
+                  // 3. Open submission window
                   return (
                     <button
                       type="button"
@@ -1098,10 +1124,6 @@ try {
                   );
                 })()
               )}
-            </div>
-          )}
-        </main>
-      )}
 
       {/* TAB 2: VERTICAL LEADERBOARD */}
       {activeTab === 'leaderboard' && (
