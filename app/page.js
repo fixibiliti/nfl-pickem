@@ -1124,6 +1124,10 @@ try {
                   );
                 })()
               )}
+            </div>
+          )}
+        </main>
+      )}
 
       {/* TAB 2: VERTICAL LEADERBOARD */}
       {activeTab === 'leaderboard' && (
