@@ -57,7 +57,9 @@ export async function GET(request) {
       };
     });
 
-    return NextResponse.json({ history: sanitizedHistory, users });
+    const safeUsers = users.map(({ pin, ...rest }) => rest);
+
+    return NextResponse.json({ history: sanitizedHistory, users: safeUsers });
   } catch (err) {
     console.error('History fetch error:', err);
     return NextResponse.json({ error: err.message }, { status: 500 });

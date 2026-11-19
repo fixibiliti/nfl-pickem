@@ -7,6 +7,16 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(request) {
   try {
+    const authHeader = request.headers.get('authorization');
+    const cronSecret = process.env.CRON_SECRET;
+
+    if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
+      return NextResponse.json(
+        { error: 'Unauthorized: Invalid or missing CRON_SECRET' },
+        { status: 401 }
+      );
+    }
+
     const { searchParams } = new URL(request.url);
     
     // 1. Read week from query string, or fall back to saved settings/slate
@@ -53,6 +63,16 @@ export async function GET(request) {
 
 export async function POST(request) {
   try {
+    const authHeader = request.headers.get('authorization');
+    const cronSecret = process.env.CRON_SECRET;
+
+    if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
+      return NextResponse.json(
+        { error: 'Unauthorized: Invalid or missing CRON_SECRET' },
+        { status: 401 }
+      );
+    }
+
     const body = await request.json().catch(() => ({}));
     const { timestamp, action } = body;
     const cookieStore = await cookies();

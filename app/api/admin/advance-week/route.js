@@ -7,6 +7,16 @@ export const revalidate = 0;
 
 export async function GET(request) {
   try {
+    const authHeader = request.headers.get('authorization');
+    const cronSecret = process.env.CRON_SECRET;
+
+    if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
+      return NextResponse.json(
+        { error: 'Unauthorized: Invalid or missing CRON_SECRET' },
+        { status: 401 }
+      );
+    }
+
     const { searchParams } = new URL(request.url);
     const targetWeek = parseInt(searchParams.get('week') || '2', 10);
 

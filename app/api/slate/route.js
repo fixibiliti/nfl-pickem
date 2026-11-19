@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { readData, writeData } from '@/lib/db';
-import { fetchCurrentNFLWeek, generateWeeklySlate } from '@/lib/nfl';
+import { fetchCurrentNFLWeek, selectWeeklyGames } from '@/lib/nfl';
 import { getLiveScores } from '@/lib/espn';
 import { getEffectiveDate, isGameLocked, getSlateLockStatus } from '@/lib/clock';
 
@@ -32,7 +32,7 @@ export async function GET(request) {
     if (!slate || slate.length === 0) {
       try {
         const espnData = await fetchCurrentNFLWeek();
-        const newSlate = generateWeeklySlate(espnData);
+        const newSlate = selectWeeklyGames(espnData?.events || []);
         weekNumber = espnData.week?.number || 2;
 
         if (newSlate && newSlate.length > 0) {

@@ -69,6 +69,16 @@ export async function GET() {
 
 export async function POST(request) {
   try {
+    const authHeader = request.headers.get('authorization');
+    const cronSecret = process.env.CRON_SECRET;
+
+    if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
+      return NextResponse.json(
+        { error: 'Unauthorized: Invalid or missing CRON_SECRET' },
+        { status: 401 }
+      );
+    }
+
     const body = await request.json();
     const textInput = (body?.text || DEFAULT_PROMPT_TEXT).trim();
     const apiKey = process.env.GEMINI_API_KEY;
